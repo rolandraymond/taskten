@@ -1,0 +1,18 @@
+
+
+node scripts/db-init.js
+cd backend
+node backend/scripts/user-create.js admin@example.com AdminPass123 true
+npm run build
+npm run db:sync
+$env:NODE_ENV="development"; node backend/scripts/user-create.js admin@example.com AdminPass123 true
+npx cross-env NODE_ENV=development node backend/scripts/user-create.js admin@example.com AdminPass123 true
+
+npm run backend:dev
+npm run frontend:dev
+
+
+npm run lint -- "backend/modules/admin/service.js" --fix
+
+tree /f /a | findstr /v /i "node_modules dist .git .next .cache" > project_structure.txt
+

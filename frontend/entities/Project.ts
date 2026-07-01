@@ -1,0 +1,48 @@
+import { Area } from './Area';
+import { Tag } from './Tag';
+import { PriorityType, Task } from './Task';
+import { Note } from './Note';
+
+export type ProjectStatus =
+    | 'not_started'
+    | 'planned'
+    | 'in_progress'
+    | 'waiting'
+    | 'done'
+    | 'cancelled';
+
+export interface ProjectTaskStatus {
+    total: number;
+    done: number;
+    in_progress: number;
+    not_started: number;
+}
+
+export interface Project {
+    id?: number;
+    uid?: string;
+    name: string;
+    description?: string;
+    pin_to_sidebar?: boolean;
+    area?: Area;
+    area_id?: number | null;
+    area_uid?: string | null;
+    tags?: Tag[];
+    priority?: PriorityType;
+    tasks?: Task[];
+    Tasks?: Task[]; // Sequelize association naming (capitalized)
+    notes?: Note[];
+    Notes?: Note[]; // Sequelize association naming (capitalized)
+    due_date_at?: string | null;
+    image_url?: string;
+    task_show_completed?: boolean;
+    task_sort_order?: string;
+    status?: ProjectStatus;
+    created_at?: string;
+    updated_at?: string;
+    share_count?: number;
+    is_shared?: boolean;
+    task_status?: ProjectTaskStatus;
+    completion_percentage?: number;
+    is_stalled?: boolean;
+}

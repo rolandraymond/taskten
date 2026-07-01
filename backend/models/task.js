@@ -1,0 +1,356 @@
+const { DataTypes } = require('sequelize');
+const { uid } = require('../utils/uid');
+
+module.exports = (sequelize) => {
+    const Task = sequelize.define(
+        'Task',
+        {
+            id: {
+                type: DataTypes.INTEGER,
+                primaryKey: true,
+                autoIncrement: true,
+            },
+            uid: {
+                type: DataTypes.STRING,
+                allowNull: false,
+                unique: true,
+                defaultValue: uid,
+            },
+            name: {
+                type: DataTypes.TEXT,
+                allowNull: false,
+            },
+            due_date: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+            defer_until: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+            priority: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                defaultValue: 0,
+                validate: {
+                    min: 0,
+                    max: 2,
+                },
+            },
+            status: {
+                type: DataTypes.INTEGER,
+                allowNull: false,
+                defaultValue: 0,
+                validate: {
+                    min: 0,
+                    max: 6,
+                },
+            },
+            note: {
+                type: DataTypes.TEXT,
+                allowNull: true,
+            },
+            recurrence_type: {
+                type: DataTypes.STRING,
+                allowNull: false,
+                defaultValue: 'none',
+            },
+            recurrence_interval: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+            },
+            recurrence_end_date: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+            recurrence_weekday: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                validate: {
+                    min: 0,
+                    max: 6,
+                },
+            },
+            recurrence_weekdays: {
+                type: DataTypes.TEXT,
+                allowNull: true,
+                get() {
+                    const rawValue = this.getDataValue('recurrence_weekdays');
+                    return rawValue ? JSON.parse(rawValue) : null;
+                },
+                set(value) {
+                    this.setDataValue(
+                        'recurrence_weekdays',
+                        value ? JSON.stringify(value) : null
+                    );
+                },
+            },
+            recurrence_month_day: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                validate: {
+                    min: -1,
+                    max: 31,
+                },
+            },
+            recurrence_week_of_month: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                validate: {
+                    min: 1,
+                    max: 5,
+                },
+            },
+            completion_based: {
+                type: DataTypes.BOOLEAN,
+                allowNull: false,
+                defaultValue: false,
+            },
+            user_id: {
+                type: DataTypes.INTEGER,
+                allowNull: false,
+                references: {
+                    model: 'users',
+                    key: 'id',
+                },
+            },
+            project_id: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                references: {
+                    model: 'projects',
+                    key: 'id',
+                },
+            },
+            recurring_parent_id: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                references: {
+                    model: 'tasks',
+                    key: 'id',
+                },
+            },
+            parent_task_id: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                references: {
+                    model: 'tasks',
+                    key: 'id',
+                },
+            },
+            order: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                comment: 'Order position for subtasks within a parent task',
+            },
+            completed_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+            habit_mode: {
+                type: DataTypes.BOOLEAN,
+                allowNull: false,
+                defaultValue: false,
+            },
+            habit_target_count: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+            },
+            habit_frequency_period: {
+                type: DataTypes.STRING,
+                allowNull: true,
+            },
+            habit_streak_mode: {
+                type: DataTypes.STRING,
+                allowNull: false,
+                defaultValue: 'calendar',
+            },
+            habit_flexibility_mode: {
+                type: DataTypes.STRING,
+                allowNull: false,
+                defaultValue: 'flexible',
+            },
+            habit_current_streak: {
+                type: DataTypes.INTEGER,
+                allowNull: false,
+                defaultValue: 0,
+            },
+            habit_best_streak: {
+                type: DataTypes.INTEGER,
+                allowNull: false,
+                defaultValue: 0,
+            },
+            habit_total_completions: {
+                type: DataTypes.INTEGER,
+                allowNull: false,
+                defaultValue: 0,
+            },
+            habit_last_completion_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+        },
+        {
+            tableName: 'tasks',
+            indexes: [
+                {
+                    fields: ['user_id'],
+                },
+                {
+                    fields: ['project_id'],
+                },
+                {
+                    fields: ['recurrence_type'],
+                },
+                {
+                    fields: ['parent_task_id'],
+                },
+                {
+                    name: 'tasks_parent_task_id_order',
+                    fields: ['parent_task_id', 'order'],
+                },
+                // Performance indexes for slow I/O systems (e.g., Synology NAS)
+                {
+                    name: 'tasks_status_idx',
+                    fields: ['status'],
+                },
+                {
+                    name: 'tasks_due_date_idx',
+                    fields: ['due_date'],
+                },
+                {
+                    name: 'tasks_recurring_parent_id_idx',
+                    fields: ['recurring_parent_id'],
+                },
+                {
+                    name: 'tasks_completed_at_idx',
+                    fields: ['completed_at'],
+                },
+                {
+                    name: 'tasks_user_id_status_idx',
+                    fields: ['user_id', 'status'],
+                },
+                {
+                    name: 'tasks_user_status_parent_idx',
+                    fields: ['user_id', 'status', 'parent_task_id'],
+                },
+                {
+                    name: 'tasks_user_due_date_status_idx',
+                    fields: ['user_id', 'due_date', 'status'],
+                },
+                {
+                    name: 'tasks_user_completed_at_status_idx',
+                    fields: ['user_id', 'completed_at', 'status'],
+                },
+            ],
+        }
+    );
+
+    Task.associate = function (models) {
+        Task.belongsTo(models.Task, {
+            as: 'RecurringParent',
+            foreignKey: 'recurring_parent_id',
+        });
+
+        Task.hasMany(models.Task, {
+            as: 'RecurringChildren',
+            foreignKey: 'recurring_parent_id',
+        });
+
+        Task.belongsTo(models.Task, {
+            as: 'ParentTask',
+            foreignKey: 'parent_task_id',
+        });
+
+        Task.hasMany(models.Task, {
+            as: 'Subtasks',
+            foreignKey: 'parent_task_id',
+        });
+    };
+
+    Task.PRIORITY = {
+        LOW: 0,
+        MEDIUM: 1,
+        HIGH: 2,
+    };
+
+    Task.STATUS = {
+        NOT_STARTED: 0,
+        IN_PROGRESS: 1,
+        DONE: 2,
+        ARCHIVED: 3,
+        WAITING: 4,
+        CANCELLED: 5,
+        PLANNED: 6,
+    };
+
+    Task.RECURRENCE_TYPE = {
+        NONE: 'none',
+        DAILY: 'daily',
+        WEEKLY: 'weekly',
+        MONTHLY: 'monthly',
+        MONTHLY_WEEKDAY: 'monthly_weekday',
+        MONTHLY_LAST_DAY: 'monthly_last_day',
+    };
+
+    Task.HABIT_FREQUENCY_PERIOD = {
+        DAILY: 'daily',
+        WEEKLY: 'weekly',
+        MONTHLY: 'monthly',
+    };
+
+    Task.HABIT_STREAK_MODE = {
+        CALENDAR: 'calendar',
+        SCHEDULED: 'scheduled',
+    };
+
+    Task.HABIT_FLEXIBILITY_MODE = {
+        STRICT: 'strict',
+        FLEXIBLE: 'flexible',
+    };
+
+    const getPriorityName = (priorityValue) => {
+        const priorities = ['low', 'medium', 'high'];
+        return priorities[priorityValue] || 'low';
+    };
+
+    const getStatusName = (statusValue) => {
+        const statuses = [
+            'not_started',
+            'in_progress',
+            'done',
+            'archived',
+            'waiting',
+            'cancelled',
+            'planned',
+        ];
+        return statuses[statusValue] || 'not_started';
+    };
+
+    const getPriorityValue = (priorityName) => {
+        const priorities = { low: 0, medium: 1, high: 2 };
+        return priorities[priorityName] !== undefined
+            ? priorities[priorityName]
+            : 0;
+    };
+
+    const getStatusValue = (statusName) => {
+        const statuses = {
+            not_started: 0,
+            in_progress: 1,
+            done: 2,
+            archived: 3,
+            waiting: 4,
+            cancelled: 5,
+            planned: 6,
+        };
+        return statuses[statusName] !== undefined ? statuses[statusName] : 0;
+    };
+
+    Task.getPriorityName = getPriorityName;
+    Task.getStatusName = getStatusName;
+    Task.getPriorityValue = getPriorityValue;
+    Task.getStatusValue = getStatusValue;
+
+    return Task;
+};

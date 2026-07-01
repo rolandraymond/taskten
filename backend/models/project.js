@@ -1,0 +1,110 @@
+const { DataTypes } = require('sequelize');
+const { uid } = require('../utils/uid');
+
+module.exports = (sequelize) => {
+    const Project = sequelize.define(
+        'Project',
+        {
+            id: {
+                type: DataTypes.INTEGER,
+                primaryKey: true,
+                autoIncrement: true,
+            },
+            uid: {
+                type: DataTypes.STRING,
+                allowNull: false,
+                unique: true,
+                defaultValue: () => uid(),
+            },
+            name: {
+                type: DataTypes.STRING,
+                allowNull: false,
+                validate: {
+                    notEmpty: {
+                        msg: 'Project name is required',
+                    },
+                    len: {
+                        args: [1, 150],
+                        msg: 'Project name must be between 1 and 150 characters',
+                    },
+                },
+            },
+            description: {
+                type: DataTypes.TEXT,
+                allowNull: true,
+            },
+            pin_to_sidebar: {
+                type: DataTypes.BOOLEAN,
+                allowNull: false,
+                defaultValue: false,
+            },
+            priority: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                validate: {
+                    min: 0,
+                    max: 2,
+                },
+            },
+            due_date_at: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+            user_id: {
+                type: DataTypes.INTEGER,
+                allowNull: false,
+                references: {
+                    model: 'users',
+                    key: 'id',
+                },
+            },
+            area_id: {
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                references: {
+                    model: 'areas',
+                    key: 'id',
+                },
+            },
+            image_url: {
+                type: DataTypes.TEXT,
+                allowNull: true,
+            },
+            task_show_completed: {
+                type: DataTypes.BOOLEAN,
+                allowNull: true,
+                defaultValue: false,
+            },
+            task_sort_order: {
+                type: DataTypes.STRING,
+                allowNull: true,
+                defaultValue: 'created_at:desc',
+            },
+            status: {
+                type: DataTypes.ENUM(
+                    'not_started',
+                    'in_progress',
+                    'done',
+                    'waiting',
+                    'cancelled',
+                    'planned'
+                ),
+                allowNull: false,
+                defaultValue: 'not_started',
+            },
+        },
+        {
+            tableName: 'projects',
+            indexes: [
+                {
+                    fields: ['user_id'],
+                },
+                {
+                    fields: ['area_id'],
+                },
+            ],
+        }
+    );
+
+    return Project;
+};
