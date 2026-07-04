@@ -33,7 +33,7 @@ interface TaskDetailsHeaderProps {
     isOverdueAlertVisible?: boolean;
     onDismissOverdueAlert?: () => void;
     onQuickStatusToggle?: () => void;
-    attachmentCount?: number;
+    // attachmentCount?: number;
     commentsCount?: number;
     subtasksCount?: number;
     autoEditTitle?: boolean;
@@ -55,7 +55,7 @@ const TaskDetailsHeader: React.FC<TaskDetailsHeaderProps> = ({
     isOverdueAlertVisible = false,
     onDismissOverdueAlert,
     onQuickStatusToggle,
-    attachmentCount = 0,
+    // attachmentCount = 0,
     commentsCount = 0,
     subtasksCount = 0,
     autoEditTitle = false,
@@ -627,7 +627,7 @@ const TaskDetailsHeader: React.FC<TaskDetailsHeaderProps> = ({
                                     <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full border border-white dark:border-gray-900"></span>
                                 )}
                         </button>
-                        <button
+                        {/* <button
                             onClick={() => onPillChange('attachments')}
                             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors relative ${
                                 activePill === 'attachments'
@@ -639,7 +639,7 @@ const TaskDetailsHeader: React.FC<TaskDetailsHeaderProps> = ({
                             {attachmentCount > 0 && (
                                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full border border-white dark:border-gray-900"></span>
                             )}
-                        </button>
+                        </button> */}
                         <button
                             onClick={() => onPillChange('comments')}
                             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors relative ${

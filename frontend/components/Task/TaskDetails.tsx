@@ -16,7 +16,7 @@ import {
     toggleTaskCompletion,
 } from '../../utils/tasksService';
 import { createProject } from '../../utils/projectsService';
-import { fetchAttachments } from '../../utils/attachmentsService';
+// import { fetchAttachments } from '../../utils/attachmentsService';
 import { fetchComments } from '../../utils/commentsService';
 import { useStore } from '../../store/useStore';
 import { useToast } from '../Shared/ToastContext';
@@ -31,7 +31,7 @@ import {
     TaskRecurrenceCard,
     TaskDueDateCard,
     TaskDeferUntilCard,
-    TaskAttachmentsCard,
+    // TaskAttachmentsCard,
     TaskCommentsCard,
 } from './TaskDetails/';
 import {
@@ -164,7 +164,7 @@ const TaskDetails: React.FC = () => {
         completion_based: task?.completion_based || false,
     });
     const [activePill, setActivePill] = useState('overview');
-    const [attachmentCount, setAttachmentCount] = useState(0);
+    // const [attachmentCount, setAttachmentCount] = useState(0);
     const [commentsCount, setCommentsCount] = useState(0);
     const [hasLoadedSubtasks, setHasLoadedSubtasks] = useState(false);
 
@@ -519,36 +519,20 @@ const TaskDetails: React.FC = () => {
     }, [uid, task?.uid]);
 
     useEffect(() => {
-        const loadTaskMetaCounts = async () => {
-            if (task?.uid) {
-                const [attachmentsResult, commentsResult] =
-                    await Promise.allSettled([
-                        fetchAttachments(task.uid),
-                        fetchComments(task.uid),
-                    ]);
+    const loadTaskMetaCounts = async () => {
+        if (!task?.uid) return;
 
-                if (attachmentsResult.status === 'fulfilled') {
-                    setAttachmentCount(attachmentsResult.value.length);
-                } else {
-                    console.error(
-                        'Error loading attachment count:',
-                        attachmentsResult.reason
-                    );
-                }
+        try {
+            const comments = await fetchComments(task.uid);
+            setCommentsCount(comments.length);
+        } catch (error) {
+            console.error('Error loading comments count:', error);
+        }
+    };
 
-                if (commentsResult.status === 'fulfilled') {
-                    setCommentsCount(commentsResult.value.length);
-                } else {
-                    console.error(
-                        'Error loading comments count:',
-                        commentsResult.reason
-                    );
-                }
-            }
-        };
+    loadTaskMetaCounts();
+}, [task?.uid]);
 
-        loadTaskMetaCounts();
-    }, [task?.uid]);
 
     useEffect(() => {
         setHasLoadedSubtasks(false);
@@ -1206,7 +1190,7 @@ const TaskDetails: React.FC = () => {
                     isOverdueAlertVisible={isOverdue && isOverdueBubbleVisible}
                     onDismissOverdueAlert={handleDismissOverdueAlert}
                     onQuickStatusToggle={handleCompletionToggle}
-                    attachmentCount={attachmentCount}
+                    // attachmentCount={attachmentCount}
                     commentsCount={commentsCount}
                     subtasksCount={subtasks.length}
                     autoEditTitle={isNewTask}
@@ -1341,14 +1325,14 @@ const TaskDetails: React.FC = () => {
                         </div>
                     )}
 
-                    {activePill === 'attachments' && (
+                    {/* {activePill === 'attachments' && (
                         <div className="grid grid-cols-1">
                             <TaskAttachmentsCard
                                 taskUid={task.uid}
                                 onAttachmentsCountChange={setAttachmentCount}
                             />
                         </div>
-                    )}
+                    )} */}
 
                     {activePill === 'comments' && (
                         <div className="grid grid-cols-1">
