@@ -20,7 +20,7 @@ import { getCurrentUser } from '../../utils/userUtils';
 import Tooltip from '../Shared/Tooltip';
 import { differenceInCalendarDays } from 'date-fns';
 import { listShares, ListSharesResponseRow } from '../../utils/sharesService';
-import { getApiPath } from '../../config/paths';
+// import { getApiPath } from '../../config/paths';
 
 interface ProjectItemProps {
     project: Project;
@@ -90,6 +90,26 @@ const getStatusLabel = (status: ProjectStatus | undefined, t: any): string => {
 const projectShareCache = new Map<string, ListSharesResponseRow[]>();
 const failedShareCache = new Set<string>();
 const MAX_SHARE_AVATARS = 4;
+
+const getBackendOrigin = () => {
+    const hostname = window.location.hostname;
+
+    return `http://${hostname}:3002`;
+};
+
+const getUploadUrl = (url?: string | null) => {
+    if (!url) return '';
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+    }
+
+    if (url.startsWith('/')) {
+        return `${getBackendOrigin()}${url}`;
+    }
+
+    return `${getBackendOrigin()}/${url}`;
+};
 
 const getShareInitials = (value?: string | null) => {
     if (!value) return '?';
@@ -523,9 +543,7 @@ const ProjectItem: React.FC<ProjectItemProps> = ({
                                                     >
                                                         {share.avatar_image ? (
                                                             <img
-                                                                src={getApiPath(
-                                                                    share.avatar_image
-                                                                )}
+                                                                src={getUploadUrl(share.avatar_image)}
                                                                 alt={getShareDisplayName(
                                                                     share.email
                                                                 )}

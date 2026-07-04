@@ -18,16 +18,14 @@ const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE_PATH = `/api/${API_VERSION}`;
 
 const app = express();
-// 1. ✅ استدعاء الفانكشن بتاعتنا بتاعت الـ CalDAV
 const { handleOptions } = require('./modules/caldav/protocol/capabilities');
 
-// 2. ✅ نصطاد الريكويست الـ OPTIONS بتاع التقويم هنا قبل الـ CORS
 app.options('/caldav*', handleOptions);
 app.options('/.well-known/caldav*', handleOptions);
 app.options('/api/v1/caldav*', handleOptions); // لو المسار بتاعك جوه الـ api
 
-app.use(cors()); // لازم الـ CORS يكون مفعل الأول
-// السطر ده بيخلي أي ريكويست يبدأ بـ /uploads يدخل يقرا من الفولدر الحقيقي
+// app.use(cors());
+
 /* app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); */
 
 if (config.trustProxy !== false) {
@@ -95,6 +93,8 @@ app.use(
             'Content-Type',
             'Accept',
             'X-Requested-With',
+            'X-CSRF-Token',
+            'X-CSRFToken',
             'Depth',
             'If-Match',
             'If-None-Match',
@@ -110,7 +110,7 @@ app.use(
 const uploadsPath = path.resolve(config.uploadPath);
 console.log('🚀 [Serving uploads from]:', uploadsPath);
 
-// تعريف الهيدرز الخاصة بالصور والمرفقات عشان نتخطى حماية Helmet بذكاء
+
 const staticFileOptions = {
     setHeaders: (res, path, stat) => {
         // السماح للمتصفح بعرض الصور والمرفقات حتى لو من دومين مختلف (بورت 8080 للفرانتد)
@@ -220,9 +220,15 @@ app.use((req, res, next) => {
 // Only apply to state-changing methods (POST, PUT, PATCH, DELETE)
 app.use((req, res, next) => {
     const statefulMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
-    if (req._csrfExempt || !statefulMethods.includes(req.method)) {
+
+    if (
+        process.env.NODE_ENV === 'development' ||
+        req._csrfExempt ||
+        !statefulMethods.includes(req.method)
+    ) {
         return next();
     }
+
     return csrfMiddleware(req, res, next);
 });
 

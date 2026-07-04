@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-// 1. استيراد الترجمة (i18n)
 import { useTranslation } from 'react-i18next';
 import { Task } from '../../../entities/Task';
 import { Assignee } from '../../../entities/User';
@@ -15,8 +14,7 @@ import { useStore } from '../../../store/useStore';
 // 2. استيراد إشعارات النجاح والفشل
 import { useToast } from '../../Shared/ToastContext';
 // 5. استيراد مسار الـ API لجلب المستخدمين
-import { getApiPath } from '../../../config/paths';
-
+import { getApiPath, getUploadUrl } from '../../../config/paths';
 
 interface Props {
     task: Task;
@@ -161,16 +159,8 @@ const TaskAssignmentsCard: React.FC<Props> = ({ task, onRefresh }) => {
                             >
                                 {u.avatar_image || u.avatar ? (
                                     <img
-                                        // 💥 الحل الـ Production-Ready: لو اللينك مش كامل، بنحط قبله رابط الباك إند 💥
-                                        src={
-                                            (
-                                                u.avatar_image || u.avatar
-                                            )?.startsWith('http')
-                                                ? u.avatar_image || u.avatar
-                                                : // غير البورت 8080 لو الباك إند بتاعك شغال على بورت تاني
-                                                  // وفي البرودكشن ممكن تستبدل ده بـ process.env.REACT_APP_API_URL
-                                                  `http://localhost:3002${u.avatar_image || u.avatar}`
-                                        }
+                                       
+                                        src={getUploadUrl(u.avatar_image || u.avatar)}
                                         alt={u.name || 'User'}
                                         className="w-4 h-4 rounded-full object-cover"
                                     />

@@ -428,12 +428,9 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
   const shouldStickToBottomRef = useRef(true);
   const requestIdRef = useRef(0);
 
-  const syncCount = useCallback(
-    (items: CommentWithLocalState[]) => {
-      onCommentsCountChange?.(items.length);
-    },
-    [onCommentsCountChange],
-  );
+ useEffect(() => {
+  onCommentsCountChange?.(comments.length);
+}, [comments.length, onCommentsCountChange]);
 
   const loadComments = useCallback(
     async (showSpinner = true) => {
@@ -450,7 +447,7 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
         );
 
         setComments(normalized);
-        syncCount(normalized);
+        
       } catch (error: any) {
         showErrorToast(error?.message || t('task.comments.loadError', 'Failed to load comments'));
       } finally {
@@ -460,7 +457,7 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
         }
       }
     },
-    [showErrorToast, syncCount, t, taskUid],
+    [showErrorToast,  t, taskUid],
   );
 
   useEffect(() => {
@@ -671,29 +668,23 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
     setSending(true);
     setStatusNote(null);
 
-    setComments((current) => {
-      const next = [...current, optimistic].sort(
-        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-      );
-      syncCount(next);
-      return next;
-    });
+    setComments((current) =>
+  [...current, optimistic].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  )
+);
 
     try {
       const saved = await addComment(taskUid, serialized);
-      setComments((current) => {
-        const next = current.map((item) => (item.uid === optimistic.uid ? { ...saved } : item));
-        syncCount(next);
-        return next;
-      });
+      setComments((current) =>
+  current.map((item) => (item.uid === optimistic.uid ? { ...saved } : item))
+);
       showSuccessToast(t('task.comments.addSuccess', 'Message sent'));
       await loadComments(false);
     } catch (error: any) {
-      setComments((current) => {
-        const next = current.filter((item) => item.uid !== optimistic.uid);
-        syncCount(next);
-        return next;
-      });
+      setComments((current) =>
+  current.filter((item) => item.uid !== optimistic.uid)
+);
       setDraft(previousDraft);
       setAttachments(previousAttachments);
       showErrorToast(error?.message || t('task.comments.addError', 'Failed to add comment'));
@@ -712,7 +703,6 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
     sending,
     showErrorToast,
     showSuccessToast,
-    syncCount,
     t,
     taskUid,
   ]);
@@ -729,38 +719,35 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
       const parsed = normalizeStoredContent(comment.content);
       const nextContent = composeStoredContent(nextBody, parsed.quoteBlock, parsed.attachments);
 
-      setComments((current) => {
-        const next = current.map((item) =>
-          item.uid === comment.uid
-            ? {
-                ...item,
-                content: nextContent,
-                is_edited: true,
-                edited_at: new Date().toISOString(),
-              }
-            : item,
-        );
-        syncCount(next);
-        return next;
-      });
+        setComments((current) =>
+      current.map((item) =>
+        item.uid === comment.uid
+          ? {
+              ...item,
+              content: nextContent,
+              is_edited: true,
+              edited_at: new Date().toISOString(),
+            }
+          : item,
+      )
+    );
       setEditingUid(null);
 
       try {
-        const updated = await editComment(taskUid, comment.uid, nextContent);
-        setComments((current) => {
-          const next = current.map((item) => (item.uid === comment.uid ? { ...item, ...updated } : item));
-          syncCount(next);
-          return next;
-        });
+         const updated = await editComment(taskUid, comment.uid, nextContent);
+         setComments((current) =>
+        current.map((item) => (item.uid === comment.uid ? { ...item, ...updated } : item))
+      );
+
         showSuccessToast(t('task.comments.editSuccess', 'Message updated'));
         await loadComments(false);
       } catch (error: any) {
         setComments(previous);
-        syncCount(previous);
+        
         showErrorToast(error?.message || t('task.comments.editError', 'Failed to edit comment'));
       }
     },
-    [comments, editDraft, loadComments, showErrorToast, showSuccessToast, syncCount, t, taskUid],
+    [comments, editDraft, loadComments, showErrorToast, showSuccessToast,  t, taskUid],
   );
 
   const removeComment = useCallback(
@@ -768,11 +755,9 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
       const previous = comments;
       setActiveMenuUid(null);
 
-      setComments((current) => {
-        const next = current.filter((item) => item.uid !== comment.uid);
-        syncCount(next);
-        return next;
-      });
+      setComments((current) =>
+      current.filter((item) => item.uid !== comment.uid)
+          );
 
       try {
         await deleteComment(taskUid, comment.uid);
@@ -780,11 +765,10 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
         await loadComments(false);
       } catch (error: any) {
         setComments(previous);
-        syncCount(previous);
         showErrorToast(error?.message || t('task.comments.deleteError', 'Failed to delete comment'));
       }
     },
-    [comments, loadComments, showErrorToast, showSuccessToast, syncCount, t, taskUid],
+    [comments, loadComments, showErrorToast, showSuccessToast, t, taskUid],
   );
 
   const getCompactFlags = useCallback((index: number, items: CommentWithLocalState[]) => {

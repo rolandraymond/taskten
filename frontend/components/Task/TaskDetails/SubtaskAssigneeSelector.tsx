@@ -12,6 +12,7 @@ import { Task } from '../../../entities/Task';
 import { User as StoreUser } from '../../../entities/User';
 import { useStore } from '../../../store/useStore';
 import { assignSubtask } from '../../../utils/tasksService';
+import { getUploadUrl } from '../../../config/paths';
 
 interface SubtaskAssigneeSelectorProps {
     subtask: Task;
@@ -69,10 +70,7 @@ const AvatarDisplay: React.FC<{ user: Partial<PickerUser>; className: string }> 
     const label = getUserLabel(user);
     
     if (user.avatar_image && !imgError) {
-        // إذا كان المسار لا يبدأ بـ http، نضيف له /api (تعديل حسب إعدادات السيرفر لديك)
-        const imgSrc = user.avatar_image.startsWith('http') 
-            ? user.avatar_image 
-            : `${user.avatar_image}`;
+       const imgSrc = getUploadUrl(user.avatar_image);
             
         return (
             <img 

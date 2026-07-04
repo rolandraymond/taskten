@@ -111,3 +111,46 @@ export function getAssetPath(path: string): string {
     const cleanPath = stripLeadingSlash(path);
     return withBasePath(cleanPath);
 }
+
+export const getBackendOrigin = () => {
+    const envBackendUrl =
+    typeof process !== 'undefined' && process.env
+        ? process.env.REACT_APP_BACKEND_URL
+        : '';
+
+    if (envBackendUrl) {
+        return envBackendUrl.replace(/\/$/, '');
+    }
+
+    if (typeof window !== 'undefined') {
+        const { protocol, hostname, port } = window.location;
+
+        // Local frontend dev server
+        // http://localhost:8080 -> http://localhost:3002
+        // http://192.168.1.50:8080 -> http://192.168.1.50:3002
+        if (port === '8080') {
+            return `${protocol}//${hostname}:3002`;
+        }
+
+        // Self-host / production with Nginx same-origin
+        // http://192.168.1.50 -> http://192.168.1.50
+        // https://domain.com -> https://domain.com
+        return `${protocol}//${window.location.host}`;
+    }
+
+    return '';
+};
+
+export const getUploadUrl = (url?: string | null) => {
+    if (!url) return '';
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+    }
+
+    if (url.startsWith('/')) {
+        return `${getBackendOrigin()}${url}`;
+    }
+
+    return `${getBackendOrigin()}/${url}`;
+};

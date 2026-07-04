@@ -11,9 +11,10 @@ import { useTranslation } from 'react-i18next';
 import PomodoroTimer from './Shared/PomodoroTimer';
 import UniversalSearch from './UniversalSearch/UniversalSearch';
 import NotificationsDropdown from './Notifications/NotificationsDropdown';
-import { getApiPath, getAssetPath } from '../config/paths';
+import { getApiPath, getAssetPath, getUploadUrl } from '../config/paths';
 import { getFeatureFlags, FeatureFlags } from '../utils/featureFlags';
 import { setUserTimezone } from '../utils/dateUtils';
+
 
 interface NavbarProps {
     isDarkMode: boolean;
@@ -238,7 +239,7 @@ const Navbar: React.FC<NavbarProps> = ({
                         >
                             {currentUser?.avatar_image ? (
                                 <img
-                                    src={getApiPath(currentUser.avatar_image)}
+                                    src={getUploadUrl(currentUser.avatar_image)}
                                     alt="User Avatar"
                                     className="h-8 w-8 rounded-full object-cover border-2 border-green-500"
                                 />
