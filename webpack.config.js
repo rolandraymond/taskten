@@ -1,3 +1,5 @@
+require('dotenv').config({ path: './backend/.env' });
+
 const path = require('path');
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');

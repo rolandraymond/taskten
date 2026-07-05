@@ -369,6 +369,58 @@ router.get('/tasks', async (req, res) => {
     }
 });
 
+router.get(
+    '/tasks/completed-recent',
+    requirePermission(ACTIONS.VIEW_TEAM_ACTIVITY),
+    async (req, res) => {
+    try {
+        const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+
+        const tasks = await Task.findAll({
+            where: {
+                status: 2,
+            },
+            
+    
+    include: [
+            {
+                model: Project,
+                as: 'Project',
+                attributes: ['id', 'uid', 'name'],
+            },
+        ],
+            order: [['completed_at', 'DESC']],
+            limit,
+        });
+
+        res.json(
+    tasks.map((task) => {
+        const t = task.get({ plain: true });
+
+        return {
+            id: t.id,
+            uid: t.uid,
+            name: t.name,
+            status: t.status,
+            completed_at: t.completed_at,
+            updated_at: t.updated_at,
+            project: t.Project
+                ? {
+                      id: t.Project.id,
+                      uid: t.Project.uid,
+                      name: t.Project.name,
+                  }
+                : null,
+        };
+    })
+);
+    } catch (error) {
+        console.error('Completed recent tasks error:', error);
+        res.status(500).json({ error: 'Failed to load completed tasks' });
+    }
+
+    }
+);
 router.get('/tasks/metrics', async (req, res) => {
     try {
         const response = await getTaskMetrics(
@@ -754,7 +806,38 @@ router.patch('/task/:uid', requireTaskWriteAccess, async (req, res) => {
         });
 
         await task.update(taskAttributes);
+        const updatedTask = await taskRepository.findById(task.id, {
+        include: [
+        {
+            model: Project,
+            as: 'Project',
+            attributes: ['id', 'uid', 'name'],
+        },
+    ]   ,
+        });
+        const wasJustCompleted =
+        oldStatus !== Task.STATUS.DONE &&
+        oldStatus !== 'done' &&
+        (updatedTask.status === Task.STATUS.DONE ||
+        updatedTask.status === 'done');
 
+        if (wasJustCompleted) {
+            taskEvents.emit('task.completed', {
+            id: updatedTask.id,
+            uid: updatedTask.uid,
+            name: updatedTask.name,
+            status: updatedTask.status,
+            completed_at: updatedTask.completed_at,
+            completed_by: req.currentUser.id,
+            project: updatedTask.Project
+        ? {
+              id: updatedTask.Project.id,
+              uid: updatedTask.Project.uid,
+              name: updatedTask.Project.name,
+          }
+        : null,
+        });
+        }
         console.log('[routes.js] After task.update - task values:', {
             id: task.id,
             status: task.status,

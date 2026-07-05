@@ -19,6 +19,7 @@ const API_BASE_PATH = `/api/${API_VERSION}`;
 
 const app = express();
 const { handleOptions } = require('./modules/caldav/protocol/capabilities');
+const setupTaskSocket = require('./realtime/taskSocket');
 
 app.options('/caldav*', handleOptions);
 app.options('/.well-known/caldav*', handleOptions);
@@ -439,6 +440,7 @@ async function startServer() {
             console.log(`Server running on port ${config.port}`);
             console.log(`Server listening on http://localhost:${config.port}`);
         });
+        setupTaskSocket(server);
 
         server.on('error', (err) => {
             console.error('Server error:', err);

@@ -1,3 +1,5 @@
+import { getCurrentUser } from '../../utils/userUtils';
+import { connectTaskSocket } from '../../utils/taskSocket';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import { el, enUS, es, ja, uk, de } from 'date-fns/locale';
@@ -63,6 +65,11 @@ const getLocale = (language: string) => {
 const TasksToday: React.FC = () => {
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const currentUser = getCurrentUser();
+    const canViewTeamActivity =
+    currentUser?.role === 'admin' ||
+    currentUser?.role === 'co_admin' ||
+    currentUser?.is_admin === true;
 
     // Get tasks from store at the top level to avoid conditional hook usage
     const storeTasks = useStore((state) => state.tasksStore.tasks);
@@ -169,6 +176,7 @@ const TasksToday: React.FC = () => {
     // Client-side pagination for Completed Today tasks (since backend returns all)
     const [completedTodayDisplayLimit, setCompletedTodayDisplayLimit] =
         useState(20);
+    const [recentCompletedTasks, setRecentCompletedTasks] = useState<any[]>([]);    
     const [habitActionUid, setHabitActionUid] = useState<string | null>(null);
 
     // Helper to get current task data from global store
@@ -488,17 +496,38 @@ const TasksToday: React.FC = () => {
     useEffect(() => {
         isMounted.current = true;
 
-        // Only fetch data once on mount
-        const loadData = async () => {
-            if (!isMounted.current || hasInitialized || isLoading) {
-                return;
-            }
+    // Only fetch data once on mount
+    const loadData = async () => {
+        if (!isMounted.current || hasInitialized || isLoading) {
+            return;
+        }
 
-            setIsLoading(true);
-            try {
-                const result = await fetchTasks(
-                    `?type=today&limit=20&offset=0`
-                );
+        setIsLoading(true);
+        try {
+            const result = await fetchTasks(
+                `?type=today&limit=20&offset=0`
+            );
+
+            
+    if (canViewTeamActivity) {
+    const completedResponse = await fetch(
+        getApiPath('tasks/completed-recent?limit=10'),
+        {
+            credentials: 'include',
+        }
+    );
+
+    if (completedResponse.ok) {
+        const completedData = await completedResponse.json();
+
+        if (isMounted.current) {
+            setRecentCompletedTasks(completedData);
+        }
+    }
+}
+
+
+            
                 if (isMounted.current) {
                     setMetrics({
                         ...result.metrics,
@@ -725,13 +754,27 @@ const TasksToday: React.FC = () => {
         };
 
         loadData();
+        
 
         // Cleanup function to prevent state updates after unmount
         return () => {
             isMounted.current = false;
         };
     }, []); // Empty dependency array - only run once on mount
+    useEffect(() => {
+    const socket = connectTaskSocket((message) => {
+        if (message.type === 'task.completed') {
+            setRecentCompletedTasks((prev) => [
+                message.payload,
+                ...prev.filter((t) => t.uid !== message.payload.uid),
+            ].slice(0, 10));
+        }
+    });
 
+    return () => {
+        socket?.close();
+    };
+}, []);
     // Memoize task handlers to prevent recreating functions on each render
     const handleTaskUpdate = useCallback(
         async (updatedTask: Task): Promise<void> => {
@@ -1351,7 +1394,36 @@ const TasksToday: React.FC = () => {
                         </div>
                     </div>
                 </div>
+                {canViewTeamActivity && recentCompletedTasks.length > 0 &&  (
+                    <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950/30">
+                        <div className="mb-3 flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-green-800 dark:text-green-300">
+                                Recent Completed Tasks
+                            </h3>
+                            <span className="text-xs text-green-700 dark:text-green-400">
+                                {recentCompletedTasks.length}
+                            </span>
+                        </div>
 
+                        <div className="space-y-2">
+                            {recentCompletedTasks.map((task) => (
+                                <a
+                                    key={task.uid}
+                                    href={`/task/${task.uid}`}
+                                    className="block rounded-md bg-white px-3 py-2 text-sm hover:bg-green-100 dark:bg-gray-900 dark:hover:bg-gray-800"
+                                >
+                                    <div className="font-medium text-gray-900 dark:text-gray-100">
+                                        {task.name}
+                                    </div>
+                                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        {task.project?.name || 'No project'} ·{' '}
+                                        {new Date(task.completed_at).toLocaleString()}
+                                    </div>
+                                </a>
+                            ))}
+                        </div>
+                    </div>
+                )}
                 {/* Metrics Section - Always reserve space to prevent layout shift */}
                 {!isSettingsLoaded ? (
                     // Invisible placeholder that reserves the exact same space

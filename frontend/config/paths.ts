@@ -128,9 +128,9 @@ export const getBackendOrigin = () => {
         // Local frontend dev server
         // http://localhost:8080 -> http://localhost:3002
         // http://192.168.1.50:8080 -> http://192.168.1.50:3002
-        if (port === '8080') {
-            return `${protocol}//${hostname}:3002`;
-        }
+        if (port === '8080' || port === '8081') {
+    return `${protocol}//${hostname}:3003`;
+}
 
         // Self-host / production with Nginx same-origin
         // http://192.168.1.50 -> http://192.168.1.50
@@ -153,4 +153,18 @@ export const getUploadUrl = (url?: string | null) => {
     }
 
     return `${getBackendOrigin()}/${url}`;
+};
+
+export const getWebSocketOrigin = () => {
+    const backendOrigin = getBackendOrigin();
+
+    if (!backendOrigin) return '';
+
+    return backendOrigin
+        .replace(/^https:\/\//, 'wss://')
+        .replace(/^http:\/\//, 'ws://');
+};
+
+export const getTaskWebSocketUrl = () => {
+    return `${getWebSocketOrigin()}/ws/tasks`;
 };

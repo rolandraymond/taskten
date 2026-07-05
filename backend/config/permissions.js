@@ -27,6 +27,7 @@ const ACTIONS = {
 
     // Admin Panel
     ACCESS_ADMIN_PANEL: 'access_admin_panel',
+    VIEW_TEAM_ACTIVITY: 'view_team_activity',
 };
 
 // ─── ربط كل Role بصلاحياته ───────────────────────────────────────────────────
@@ -43,6 +44,7 @@ const ROLE_PERMISSIONS = {
         ACTIONS.DELETE_PROJECT,
         ACTIONS.VIEW_PROJECTS,
         ACTIONS.ACCESS_ADMIN_PANEL,
+        ACTIONS.VIEW_TEAM_ACTIVITY,
     ],
     [ROLES.CO_ADMIN]: [
         ACTIONS.CREATE_TASK,
@@ -51,6 +53,7 @@ const ROLE_PERMISSIONS = {
         ACTIONS.VIEW_ASSIGNED_TASKS,
         ACTIONS.CREATE_PROJECT,
         ACTIONS.VIEW_PROJECTS,
+        ACTIONS.VIEW_TEAM_ACTIVITY,
     ],
     [ROLES.CLIENT]: [ACTIONS.VIEW_ASSIGNED_TASKS, ACTIONS.VIEW_PROJECTS],
     [ROLES.USER]: [
