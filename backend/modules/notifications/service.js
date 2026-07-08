@@ -180,7 +180,7 @@ class NotificationsService {
 
         if (!user) return; // الموظف اتحذف أو مش موجود
 
-        const sources = ['web']; // دايماً ابعت in-app notification
+        const sources = ['web', 'push'];
 
         // لو عنده Telegram مفعّل ضيفه
         if (shouldSendTelegramNotification(user, 'task_assigned')) {
@@ -192,7 +192,11 @@ class NotificationsService {
             type: 'task_assigned',
             title: 'New Task Assignment',
             message: `You have been assigned to: ${taskName}`,
-            data: { taskId, assignedBy: assignedById },
+            data: {
+    taskId,
+    assignedBy: assignedById,
+    url: `/task/${taskId}`,
+},
             sources,
             sentAt: new Date(),
         });

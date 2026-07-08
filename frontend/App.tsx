@@ -30,6 +30,7 @@ import HabitDetails from './components/Habits/HabitDetails';
 import { setCurrentUser as setUserInStorage } from './utils/userUtils';
 import { getApiPath, getLocalesPath } from './config/paths';
 import UserActivityDashboard from './components/UserActivityDashboard';
+import { enablePushNotifications } from './services/pushNotifications';
 // Lazy load Tasks component to prevent issues with tags loading
 const Tasks = lazy(() => import('./components/Tasks'));
 
@@ -97,7 +98,15 @@ const App: React.FC = () => {
                 handleUserLoggedIn as EventListener
             );
     }, []);
+    useEffect(() => {
+    if (!currentUser) {
+        return;
+    }
 
+    enablePushNotifications().catch((error) => {
+        console.error('Failed to enable push notifications:', error);
+    });
+}, [currentUser?.uid]);
     useEffect(() => {
         if (i18n.isInitialized) {
             fetch(getLocalesPath(`${i18n.language}/translation.json`))

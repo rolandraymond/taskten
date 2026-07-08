@@ -196,6 +196,7 @@ app.use((req, res, next) => {
         '/api/health',
     ];
 
+
     const isPublicPath = publicPaths.some((path) => req.path === path);
     const isOidcPath = req.path.startsWith('/api/oidc/');
     const isFeatureFlagsPath = req.path.startsWith('/api/feature-flags');
@@ -283,6 +284,7 @@ const habitsModule = require('./modules/habits');
 const inboxModule = require('./modules/inbox');
 const notesModule = require('./modules/notes');
 const notificationsModule = require('./modules/notifications');
+const pushModule = require('./modules/push');
 const projectsModule = require('./modules/projects');
 const quotesModule = require('./modules/quotes');
 const searchModule = require('./modules/search');
@@ -377,6 +379,7 @@ const registerApiRoutes = (basePath) => {
     app.use(basePath, searchModule.routes);
     app.use(basePath, viewsModule.routes);
     app.use(basePath, notificationsModule.routes);
+    app.use(basePath, pushModule.routes);
     app.use(basePath, mcpModule.routes);
 };
 

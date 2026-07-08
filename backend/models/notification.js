@@ -78,6 +78,7 @@ module.exports = (sequelize) => {
                             'mobile',
                             'email',
                             'web',
+                            'push',
                         ];
                         const invalidSources = value.filter(
                             (s) => !validSources.includes(s)
@@ -166,20 +167,10 @@ module.exports = (sequelize) => {
             channel_sent_at,
         });
 
-        if (sources.includes('email')) {
-            await sendEmailNotification(userId, title, message, Notification);
-        }
-
-        if (sources.includes('telegram')) {
-            await sendTelegramNotification(
-                userId,
-                title,
-                message,
-                data,
-                Notification,
-                notification
-            );
-        }
+    if (sources.length > 0) {
+    const notificationDispatcher = require('../modules/notifications/notificationDispatcher');
+    await notificationDispatcher.dispatch(notification);
+}
 
         return notification;
     };
