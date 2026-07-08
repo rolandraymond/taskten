@@ -162,7 +162,7 @@ class NotificationsService {
         taskName,
         assignedById
     ) {
-        const { Notification, User } = require('../../models');
+        const { Notification, User, Task } = require('../../models');
         const {
             shouldSendTelegramNotification,
         } = require('../../utils/notificationPreferences');
@@ -178,8 +178,15 @@ class NotificationsService {
             ],
         });
 
-        if (!user) return; // الموظف اتحذف أو مش موجود
+        if (!user) return; 
 
+        const task = await Task.findByPk(taskId, {
+        attributes: ['id', 'uid'],  
+        });
+
+
+
+if (!task) return;
         const sources = ['web', 'push'];
 
         // لو عنده Telegram مفعّل ضيفه
@@ -195,7 +202,7 @@ class NotificationsService {
             data: {
     taskId,
     assignedBy: assignedById,
-    url: `/task/${taskId}`,
+    url: `/task/${task.uid}`,
 },
             sources,
             sentAt: new Date(),

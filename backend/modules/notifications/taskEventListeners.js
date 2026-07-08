@@ -30,6 +30,48 @@ function registerTaskNotificationListeners() {
             }
         }
     );
+    taskEvents.on('task.completed', async (event) => {
+    console.log('[Push] task.completed event:', event);
+
+    try {
+        const { Notification } = require('../../models');
+        const {
+            resolveTaskCompletedRecipients,
+            getTaskById,
+        } = require('./recipients/taskRecipients');
+
+        const task = await getTaskById(event.id);
+        if (!task) return;
+
+        const recipientIds = await resolveTaskCompletedRecipients({
+            taskId: event.id,
+        });
+
+        await Promise.all(
+            recipientIds.map((userId) =>
+                Notification.createNotification({
+                    userId,
+                    type: 'task_completed',
+                    title: 'Task Completed',
+                    message: `${event.name || task.name} has been completed`,
+                    data: {
+                        taskId: event.id,
+                        taskUid: task.uid,
+                        url: `/task/${task.uid}`,
+                    },
+                    sources: ['web', 'push'],
+                    sentAt: new Date(),
+                    level: 'success',
+                })
+            )
+        );
+    } catch (error) {
+        logError(
+            '[taskEventListeners] task.completed notification failed',
+            error
+        );
+    }
+});
 }
 
 module.exports = { registerTaskNotificationListeners };
