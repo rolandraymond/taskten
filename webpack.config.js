@@ -41,6 +41,7 @@ module.exports = {
         watchFiles: isDevelopment ? ['frontend/**/*'] : [],
         port: frontendPort,
         host: frontendHost,
+        allowedHosts: 'all',
         historyApiFallback: true,
         proxy: [
             {

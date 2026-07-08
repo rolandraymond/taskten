@@ -1,16 +1,9 @@
 'use strict';
 
-// ✅ نجيب الـ EventEmitter من taskEvents.js مش events.js
-// events.js هو Express Router — taskEvents.js هو الـ domain event bus
-const taskEvents = require('../tasks/taskEvents'); // ← التعديل هنا فقط
-
+const taskEvents = require('../tasks/taskEvents');
 const notificationsService = require('./service');
 const { logError } = require('../../services/logService');
 
-/**
- * بيسجّل كل الـ listeners المتعلقة بإشعارات التاسكات.
- * يُستدعى مرة واحدة فقط في app.js داخل startServer()
- */
 function registerTaskNotificationListeners() {
     taskEvents.on(
         'task.assigned',
@@ -30,48 +23,90 @@ function registerTaskNotificationListeners() {
             }
         }
     );
+
     taskEvents.on('task.completed', async (event) => {
-    console.log('[Push] task.completed event:', event);
+        try {
+            const { Notification } = require('../../models');
+            const {
+                resolveTaskCompletedRecipients,
+                getTaskById,
+            } = require('./recipients/taskRecipients');
 
-    try {
-        const { Notification } = require('../../models');
-        const {
-            resolveTaskCompletedRecipients,
-            getTaskById,
-        } = require('./recipients/taskRecipients');
+            const task = await getTaskById(event.id);
+            if (!task) return;
 
-        const task = await getTaskById(event.id);
-        if (!task) return;
+            const recipientIds = await resolveTaskCompletedRecipients({
+                taskId: event.id,
+            });
 
-        const recipientIds = await resolveTaskCompletedRecipients({
-            taskId: event.id,
-        });
+            await Promise.all(
+                recipientIds.map((userId) =>
+                    Notification.createNotification({
+                        userId,
+                        type: 'task_completed',
+                        title: 'Task Completed',
+                        message: `${event.name || task.name} has been completed`,
+                        data: {
+                            taskId: event.id,
+                            taskUid: task.uid,
+                            url: `/task/${task.uid}`,
+                        },
+                        sources: ['web', 'push'],
+                        sentAt: new Date(),
+                        level: 'success',
+                    })
+                )
+            );
+        } catch (error) {
+            logError(
+                '[taskEventListeners] task.completed notification failed',
+                error
+            );
+        }
+    });
 
-        await Promise.all(
-            recipientIds.map((userId) =>
-                Notification.createNotification({
-                    userId,
-                    type: 'task_completed',
-                    title: 'Task Completed',
-                    message: `${event.name || task.name} has been completed`,
-                    data: {
-                        taskId: event.id,
-                        taskUid: task.uid,
-                        url: `/task/${task.uid}`,
-                    },
-                    sources: ['web', 'push'],
-                    sentAt: new Date(),
-                    level: 'success',
-                })
-            )
-        );
-    } catch (error) {
-        logError(
-            '[taskEventListeners] task.completed notification failed',
-            error
-        );
-    }
-});
+    taskEvents.on('comment.added', async (event) => {
+        try {
+            const { Notification } = require('../../models');
+            const {
+                resolveTaskCommentRecipients,
+                getTaskById,
+            } = require('./recipients/taskRecipients');
+
+            const task = await getTaskById(event.taskId);
+            if (!task) return;
+
+            const recipientIds = await resolveTaskCommentRecipients({
+                taskId: event.taskId,
+                authorUserId: event.authorUserId,
+            });
+
+            await Promise.all(
+                recipientIds.map((userId) =>
+                    Notification.createNotification({
+                        userId,
+                        type: 'comment_added',
+                        title: 'New Comment',
+                        message: `New comment on ${task.name}`,
+                        data: {
+                            taskId: task.id,
+                            taskUid: task.uid,
+                            commentUid: event.commentUid,
+                            url: `/task/${task.uid}`,
+                        },
+                        sources: ['web', 'push'],
+                        sentAt: new Date(),
+                        level: 'info',
+                    })
+                )
+            );
+        } catch (error) {
+            logError(
+                '[taskEventListeners] comment.added notification failed',
+                error
+            );
+        }
+    });
 }
 
 module.exports = { registerTaskNotificationListeners };
