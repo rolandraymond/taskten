@@ -166,5 +166,5 @@ export const getWebSocketOrigin = () => {
 };
 
 export const getTaskWebSocketUrl = () => {
-    return `${getWebSocketOrigin()}/ws/tasks`;
+    return `${getWebSocketOrigin()}/tasksten-ws/tasks`;
 };

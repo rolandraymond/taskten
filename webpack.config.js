@@ -37,6 +37,10 @@ module.exports = {
         static: {
             directory: path.join(__dirname, 'public'),
         },
+        allowedHosts: 'all',
+        client: {
+        webSocketURL: 'auto://0.0.0.0:0/ws',
+    },
         hot: isDevelopment,
         watchFiles: isDevelopment ? ['frontend/**/*'] : [],
         port: frontendPort,
@@ -44,8 +48,9 @@ module.exports = {
         historyApiFallback: true,
         proxy: [
             {
-                context: ['/api', '/locales'],
+                context: ['/api', '/locales', '/tasksten-ws'],
                 target: backendUrl,
+                ws: true,
                 changeOrigin: true,
                 secure: false,
                 cookieDomainRewrite: frontendCookieDomain,

@@ -6,7 +6,7 @@ const taskEvents = require('../modules/tasks/taskEvents');
 function setupTaskSocket(server) {
     const wss = new WebSocket.Server({
         server,
-        path: '/ws/tasks',
+        path: '/tasksten-ws/tasks',
     });
 
     const broadcast = (payload) => {
@@ -33,7 +33,7 @@ function setupTaskSocket(server) {
         });
     });
 
-    console.log('[WebSocket] Task socket ready on /ws/tasks');
+    console.log('[WebSocket] Task socket ready on /tasksten-ws/tasks');
 
     return wss;
 }
