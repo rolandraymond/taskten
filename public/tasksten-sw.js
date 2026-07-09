@@ -1,5 +1,15 @@
 self.addEventListener('push', (event) => {
     const payload = event.data ? event.data.json() : {};
+    event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        clientList.forEach((client) => {
+            client.postMessage({
+                type: 'TASKSTEN_NOTIFICATION_SOUND',
+                payload,
+            });
+        });
+    })
+);
 
     const title = payload.title || 'Tasksten7';
     const options = {

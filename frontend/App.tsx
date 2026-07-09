@@ -31,8 +31,10 @@ import { setCurrentUser as setUserInStorage } from './utils/userUtils';
 import { getApiPath, getLocalesPath } from './config/paths';
 import UserActivityDashboard from './components/UserActivityDashboard';
 import { enablePushNotifications } from './services/pushNotifications';
+import { playNotificationSound } from './services/notificationSound';
 // Lazy load Tasks component to prevent issues with tags loading
 const Tasks = lazy(() => import('./components/Tasks'));
+
 
 const App: React.FC = () => {
     const { i18n } = useTranslation();
@@ -107,6 +109,27 @@ const App: React.FC = () => {
         console.error('Failed to enable push notifications:', error);
     });
 }, [currentUser?.uid]);
+useEffect(() => {
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'TASKSTEN_NOTIFICATION_SOUND') {
+            playNotificationSound();
+        }
+    };
+
+    if (!navigator.serviceWorker) return;
+
+    navigator.serviceWorker.addEventListener(
+        'message',
+        handleServiceWorkerMessage
+    );
+
+    return () => {
+        navigator.serviceWorker.removeEventListener(
+            'message',
+            handleServiceWorkerMessage
+        );
+    };
+}, []);
     useEffect(() => {
         if (i18n.isInitialized) {
             fetch(getLocalesPath(`${i18n.language}/translation.json`))

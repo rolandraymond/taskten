@@ -66,47 +66,70 @@ function registerTaskNotificationListeners() {
     });
 
     taskEvents.on('comment.added', async (event) => {
-        try {
-            const { Notification } = require('../../models');
-            const {
-                resolveTaskCommentRecipients,
-                getTaskById,
-            } = require('./recipients/taskRecipients');
+    try {
+        const { Notification } = require('../../models');
+        const { getTaskById } = require('./recipients/taskRecipients');
+        const {
+            resolveMentionRecipients,
+            resolveCommentAddedRecipients,
+        } = require('./recipients/commentRecipients');
 
-            const task = await getTaskById(event.taskId);
-            if (!task) return;
+        const task = await getTaskById(event.taskId);
+        if (!task) return;
 
-            const recipientIds = await resolveTaskCommentRecipients({
-                taskId: event.taskId,
-                authorUserId: event.authorUserId,
-            });
+        const mentionedUserIds = await resolveMentionRecipients({
+            content: event.content,
+            authorUserId: event.authorUserId,
+        });
 
-            await Promise.all(
-                recipientIds.map((userId) =>
-                    Notification.createNotification({
-                        userId,
-                        type: 'comment_added',
-                        title: 'New Comment',
-                        message: `New comment on ${task.name}`,
-                        data: {
-                            taskId: task.id,
-                            taskUid: task.uid,
-                            commentUid: event.commentUid,
-                            url: `/task/${task.uid}`,
-                        },
-                        sources: ['web', 'push'],
-                        sentAt: new Date(),
-                        level: 'info',
-                    })
-                )
-            );
-        } catch (error) {
-            logError(
-                '[taskEventListeners] comment.added notification failed',
-                error
-            );
-        }
-    });
+        const commentRecipientIds = await resolveCommentAddedRecipients({
+            authorUserId: event.authorUserId,
+            excludeUserIds: mentionedUserIds,
+        });
+
+        await Promise.all([
+            ...commentRecipientIds.map((userId) =>
+                Notification.createNotification({
+                    userId,
+                    type: 'comment_added',
+                    title: 'New Comment',
+                    message: `New comment on ${task.name}`,
+                    data: {
+                        taskId: task.id,
+                        taskUid: task.uid,
+                        commentUid: event.commentUid,
+                        url: `/task/${task.uid}`,
+                    },
+                    sources: ['web', 'push'],
+                    sentAt: new Date(),
+                    level: 'info',
+                })
+            ),
+            ...mentionedUserIds.map((userId) =>
+                Notification.createNotification({
+                    userId,
+                    type: 'mention',
+                    title: 'You were mentioned',
+                    message: `You were mentioned in a comment on ${task.name}`,
+                    data: {
+                        taskId: task.id,
+                        taskUid: task.uid,
+                        commentUid: event.commentUid,
+                        url: `/task/${task.uid}`,
+                    },
+                    sources: ['web', 'push'],
+                    sentAt: new Date(),
+                    level: 'info',
+                })
+            ),
+        ]);
+    } catch (error) {
+        logError(
+            '[taskEventListeners] comment.added notification failed',
+            error
+        );
+    }
+});
 }
 
 module.exports = { registerTaskNotificationListeners };
