@@ -244,10 +244,39 @@ async function ownershipOrPermissionWhere(resourceType, userId, cache = null) {
     if (cache) cache.set(cacheKey, result);
     return result;
 }
+async function getUsersWithTaskAccess(taskUid) {
+    const users = await User.findAll({
+        attributes: ['id', 'uid', 'name', 'surname', 'email', 'avatar_image'],
+    });
 
+    const allowedUsers = [];
+
+    for (const user of users) {
+        const access = await getAccess(user.id, 'task', taskUid);
+
+        if (access !== ACCESS.NONE) {
+            const fullName = [user.name, user.surname]
+                .filter(Boolean)
+                .join(' ')
+                .trim();
+
+            allowedUsers.push({
+                id: user.id,
+                uid: user.uid,
+                label: fullName || user.email || 'Unknown user',
+                email: user.email,
+                avatar: user.avatar_image || null,
+                access,
+            });
+        }
+    }
+
+    return allowedUsers;
+}
 module.exports = {
     ACCESS,
     getAccess,
     ownershipOrPermissionWhere,
     getSharedUidsForUser,
+    getUsersWithTaskAccess,
 };

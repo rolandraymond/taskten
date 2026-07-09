@@ -38,3 +38,18 @@ export const updateUserRole = async (userId: number, role: string) => {
     }
     return res.json();
 };
+
+export const getTaskUsers = async (taskUid: string) => {
+    const res = await fetchWithCsrf(getApiPath(`task/${taskUid}/users`), {
+        method: 'GET',
+        credentials: 'include',
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch task users');
+    }
+
+    return res.json();
+};
+
+export const getUserPicker = getAssignmentPicker;

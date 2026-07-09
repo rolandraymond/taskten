@@ -191,6 +191,18 @@ function expandRecurringTasks(tasks, maxDays = 7, statusFilter = null) {
 
     return expandedTasks;
 }
+router.get('/task/:uid/users', requireTaskReadAccess, async (req, res) => {
+    try {
+        const users = await permissionsService.getUsersWithTaskAccess(
+            req.params.uid
+        );
+
+        res.json(users);
+    } catch (error) {
+        logError('Error fetching task users:', error);
+        res.status(500).json({ error: 'Failed to fetch task users' });
+    }
+});
 
 router.get('/tasks', async (req, res) => {
     const startTime = Date.now();

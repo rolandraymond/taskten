@@ -21,12 +21,15 @@ import {
   UsersIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-
+import CommentComposer from './components/CommentComposer';
 import { Comment } from '../../../entities/Comment';
 import { addComment, deleteComment, editComment, fetchComments } from '../../../utils/commentsService';
 import { getCurrentUser } from '../../../utils/userUtils';
 import { useToast } from '../../Shared/ToastContext';
-
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import { useCommentComposer } from './hooks/useCommentComposer';
 interface TaskCommentsCardProps {
   taskUid: string;
   currentUserId?: number;
@@ -327,35 +330,31 @@ function parseInlineNodes(text: string, keyPrefix: string, query?: string): Reac
 }
 
 function renderRichContent(text: string, query?: string): React.ReactNode {
-  const lines = text.split('\n');
   return (
-    <div className="space-y-1.5">
-      {lines.map((line, index) => {
-        if (!line.trim()) {
-          return <div key={`empty-${index}`} className="h-2" />;
-        }
-
-        if (line.startsWith('>')) {
-          const content = line.replace(/^>\s?/, '');
-          return (
-            <blockquote
-              key={`quote-${index}`}
-              className="rounded-r-2xl border-l-4 border-indigo-500 bg-indigo-50/80 px-3 py-2 text-sm italic text-gray-700 dark:bg-indigo-500/10 dark:text-gray-300"
+    <div className="prose prose-sm max-w-none dark:prose-invert prose-a:font-bold prose-a:underline prose-a:underline-offset-2">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        components={{
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-medium text-indigo-600 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-700 dark:text-indigo-400"
             >
-              {parseInlineNodes(content, `quote-${index}`, query)}
-            </blockquote>
-          );
-        }
-
-        return (
-          <div key={`line-${index}`} className="break-words leading-7">
-            {parseInlineNodes(line, `line-${index}`, query)}
-          </div>
-        );
-      })}
+              {children}
+              <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+            </a>
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
     </div>
   );
 }
+
 
 function groupCommentsByDate(items: CommentWithLocalState[]): Array<{ label: string; items: CommentWithLocalState[] }> {
   const groups: Array<{ label: string; items: CommentWithLocalState[] }> = [];
@@ -400,8 +399,11 @@ const ComposerHint = () => (
 );
 
 const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUserId, onCommentsCountChange }) => {
+  
   const { t } = useTranslation();
   const { showErrorToast, showSuccessToast } = useToast();
+
+  
   const currentUser = useMemo(() => getCurrentUser(), []);
   const resolvedCurrentUserId = currentUserId ?? currentUser?.id ?? 0;
   const isAdmin = currentUser?.role === 'admin' || currentUser?.is_admin === true;
@@ -409,8 +411,6 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
   const [comments, setComments] = useState<CommentWithLocalState[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
   const [editingUid, setEditingUid] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState('');
   const [replyingTo, setReplyingTo] = useState<QuoteTarget | null>(null);
@@ -418,13 +418,14 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
   const [activeMenuUid, setActiveMenuUid] = useState<string | null>(null);
   const [jumpVisible, setJumpVisible] = useState(false);
   const [statusNote, setStatusNote] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<StoredAttachment[]>([]);
-  const [draggingFiles, setDraggingFiles] = useState(false);
+  const composer = useCommentComposer({
+    onError: showErrorToast,
+    onStatusChange: setStatusNote,
+});
+ 
 
   const endRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const shouldStickToBottomRef = useRef(true);
   const requestIdRef = useRef(0);
 
@@ -486,14 +487,14 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
     requestAnimationFrame(() => {
       endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     });
-  }, [comments.length, editingUid, searchQuery, sending]);
+  }, [comments.length, editingUid, searchQuery, composer.sending]);
 
   useEffect(() => {
-    const input = inputRef.current;
+    const input = composer.inputRef.current;
     if (!input) return;
     input.style.height = 'auto';
     input.style.height = `${Math.min(input.scrollHeight, 220)}px`;
-  }, [draft]);
+  }, [composer.draft]);
 
   const filteredComments = useMemo(() => {
     const term = searchQuery.trim().toLowerCase();
@@ -517,94 +518,10 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
     return [...map.entries()].map(([id, value]) => ({ id, ...value }));
   }, [comments]);
 
-  const handleFormat = useCallback(
-    (token: '**' | '*' | '~~' | '`') => {
-      const input = inputRef.current;
-      if (!input) return;
-
-      const start = input.selectionStart ?? draft.length;
-      const end = input.selectionEnd ?? draft.length;
-      const selected = draft.slice(start, end);
-      const before = draft.slice(0, start);
-      const after = draft.slice(end);
-
-      const nextValue = `${before}${token}${selected}${token}${after}`;
-      setDraft(nextValue);
-
-      window.requestAnimationFrame(() => {
-        input.focus();
-        input.setSelectionRange(start + token.length, end + token.length);
-      });
-    },
-    [draft],
-  );
-
-  const openAttachmentPicker = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  const ingestFiles = useCallback(
-    async (incomingFiles: File[]) => {
-      if (incomingFiles.length === 0) return;
-
-      const MAX_FILES = 6;
-      const MAX_SIZE_MB = 8;
-      const allowed = incomingFiles.slice(0, MAX_FILES);
-      const oversized = allowed.filter((file) => file.size > MAX_SIZE_MB * 1024 * 1024);
-      const accepted = allowed.filter((file) => file.size <= MAX_SIZE_MB * 1024 * 1024);
-
-      if (oversized.length > 0) {
-        showErrorToast(`Some files are larger than ${MAX_SIZE_MB}MB and were skipped`);
-      }
-
-      if (accepted.length === 0) return;
-
-      const nextAttachments = await Promise.all(
-        accepted.map(async (file) => ({
-          id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
-          name: file.name,
-          type: file.type || 'application/octet-stream',
-          size: file.size,
-          dataUrl: await readFileAsDataUrl(file),
-        })),
-      );
-
-      setAttachments((current) => {
-        const merged = [...current, ...nextAttachments];
-        setStatusNote(`${merged.length} attachment${merged.length === 1 ? '' : 's'} ready`);
-        return merged;
-      });
-    },
-    [showErrorToast],
-  );
-
-  const handleFileSelect = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(event.target.files ?? []);
-      event.target.value = '';
-      await ingestFiles(files);
-    },
-    [ingestFiles],
-  );
-
-  const handleDrop = useCallback(
-    async (event: React.DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      setDraggingFiles(false);
-      const files = Array.from(event.dataTransfer.files ?? []);
-      await ingestFiles(files);
-    },
-    [ingestFiles],
-  );
-
-  const removeAttachment = useCallback((attachmentId: string) => {
-    setAttachments((current) => current.filter((item) => item.id !== attachmentId));
-  }, []);
-
   const quoteComment = useCallback((comment: QuoteTarget) => {
     setReplyingTo(comment);
     setStatusNote(`Replying to ${formatAuthorName(comment.Author)}`);
-    inputRef.current?.focus();
+    composer.inputRef.current?.focus();
   }, []);
 
   const copyComment = useCallback(
@@ -637,10 +554,10 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    const body = draft.trim();
-    if ((body.length === 0 && attachments.length === 0) || sending) return;
+    const body = composer.draft.trim();
+    if ((body.length === 0 && composer.attachments.length === 0) || composer.sending) return;
 
-    const serialized = composeStoredContent(body, replyingTo ? buildReplyQuote(replyingTo) : '', attachments);
+    const serialized = composeStoredContent(body, replyingTo ? buildReplyQuote(replyingTo) : '', composer.attachments);
     const optimistic: CommentWithLocalState = {
       id: -Date.now(),
       uid: `temp-${Date.now()}`,
@@ -659,13 +576,13 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
       pending: true,
     };
 
-    const previousDraft = draft;
-    const previousAttachments = attachments;
+    const previousDraft = composer.draft;
+    const previousAttachments = composer.attachments;
 
-    setDraft('');
+    composer.setDraft('');
     setReplyingTo(null);
-    setAttachments([]);
-    setSending(true);
+    composer.setAttachments([]);
+    composer.setSending(true);
     setStatusNote(null);
 
     setComments((current) =>
@@ -685,22 +602,22 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
       setComments((current) =>
   current.filter((item) => item.uid !== optimistic.uid)
 );
-      setDraft(previousDraft);
-      setAttachments(previousAttachments);
+      composer.setDraft(previousDraft);
+      composer.setAttachments(previousAttachments);
       showErrorToast(error?.message || t('task.comments.addError', 'Failed to add comment'));
     } finally {
-      setSending(false);
+      composer.setSending(false);
     }
   }, [
-    attachments,
+    composer.attachments,
     currentUser?.email,
     currentUser?.name,
     currentUser?.surname,
-    draft,
+    composer.draft,
     loadComments,
     replyingTo,
     resolvedCurrentUserId,
-    sending,
+    composer.sending,
     showErrorToast,
     showSuccessToast,
     t,
@@ -1220,196 +1137,25 @@ const TaskCommentsCard: React.FC<TaskCommentsCardProps> = ({ taskUid, currentUse
         <div ref={endRef} className="h-4" />
       </div>
 
-      <div className="border-t border-gray-200/70 bg-white/92 px-4 py-4 backdrop-blur-xl dark:border-gray-800/70 dark:bg-gray-950/92 sm:px-6">
-        <AnimatePresence>
-          {replyingTo && (
-            <motion.div
-              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-              animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
-              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="flex items-center justify-between rounded-r-2xl border-l-4 border-indigo-500 bg-indigo-50/80 px-4 py-3 dark:bg-indigo-500/10">
-                <div className="min-w-0">
-                  <div className="text-xs font-black text-indigo-700 dark:text-indigo-400">
-                    Replying to {formatAuthorName(replyingTo.Author)}
-                  </div>
-                  <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-                    {extractPlainText(replyingTo.content)}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setReplyingTo(null)}
-                  className="rounded-full p-1.5 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/40"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {attachments.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="mb-3 flex gap-2 overflow-x-auto pb-1"
-            >
-              {attachments.map((attachment) => {
-                const image = isImageFile(attachment);
-                return (
-                  <div
-                    key={attachment.id}
-                    className="relative flex min-w-[180px] max-w-[240px] items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900"
-                  >
-                    <div
-                      className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl ${image ? 'bg-black/10' : 'bg-white/80 dark:bg-gray-800'}`}
-                      style={image ? { backgroundImage: `url(${attachment.dataUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
-                    >
-                      {!image && <DocumentIcon className="h-5 w-5 text-gray-500 dark:text-gray-300" />}
-                    </div>
-                    <div className="min-w-0 flex-1 pr-7">
-                      <p className="truncate text-sm font-bold text-gray-800 dark:text-gray-100">{attachment.name}</p>
-                      <p className="truncate text-[11px] font-semibold text-gray-500 dark:text-gray-400">
-                        {formatFileSize(attachment.size)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeAttachment(attachment.id)}
-                      className="absolute right-2 top-2 rounded-full bg-white p-1 text-gray-500 shadow-sm hover:text-red-600 dark:bg-gray-950 dark:text-gray-400"
-                      title="Remove attachment"
-                    >
-                      <XMarkIcon className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                );
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div
-          className={`relative rounded-[1.7rem] border-2 bg-white shadow-sm transition-all duration-300 dark:bg-gray-950 ${
-            draggingFiles
-              ? 'border-indigo-500 bg-indigo-50/60 ring-4 ring-indigo-500/10 dark:bg-indigo-900/20'
-              : 'border-gray-200 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 dark:border-gray-800'
-          }`}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDraggingFiles(true);
-          }}
-          onDragLeave={() => setDraggingFiles(false)}
-          onDrop={handleDrop}
-        >
-          <div className="flex items-center gap-1 border-b border-gray-100 px-3 py-2 dark:border-gray-800">
-            <button
-              type="button"
-              onClick={() => handleFormat('**')}
-              className="rounded-lg px-2 py-1 text-sm font-black text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-              title="Bold"
-            >
-              B
-            </button>
-            <button
-              type="button"
-              onClick={() => handleFormat('*')}
-              className="rounded-lg px-2 py-1 text-sm italic text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-              title="Italic"
-            >
-              I
-            </button>
-            <button
-              type="button"
-              onClick={() => handleFormat('`')}
-              className="rounded-lg px-2 py-1 text-xs font-mono text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-              title="Code"
-            >
-              {'</>'}
-            </button>
-            <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
-            <button
-              type="button"
-              onClick={() => setDraft((prev) => `${prev}${prev && !prev.endsWith(' ') ? ' ' : ''}👍`)}
-              className="rounded-lg px-2 py-1 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-              title="Emoji"
-            >
-              <FaceSmileIcon className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={openAttachmentPicker}
-              className="rounded-lg px-2 py-1 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-              title="Attach files"
-            >
-              <PaperClipIcon className="h-5 w-5" />
-            </button>
-            <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileSelect} />
-          </div>
-
-          <textarea
-            ref={inputRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault();
-                void handleSubmit();
-              }
-              if (e.key === 'Escape') {
-                if (replyingTo) setReplyingTo(null);
-                setActiveMenuUid(null);
-              }
-            }}
-            placeholder={
-              draggingFiles
-                ? 'Drop files here…'
-                : t('task.comments.placeholder', 'Write a message, quote teammates, and attach evidence...')
-            }
-            className="min-h-[102px] w-full resize-none bg-transparent px-4 py-3 text-[15px] leading-6 text-gray-900 outline-none placeholder:text-gray-400 dark:text-gray-100"
-            disabled={sending}
-          />
-
-          <div className="flex flex-col gap-3 border-t border-gray-100 px-3 py-2.5 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
-            <ComposerHint />
-
-            <div className="flex items-center justify-between gap-3 sm:justify-end">
-              <button
-                type="button"
-                onClick={openAttachmentPicker}
-                className="inline-flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-sm font-bold text-gray-600 transition hover:bg-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                <PaperClipIcon className="h-4.5 w-4.5" />
-                Attach
-              </button>
-
-              <motion.button
-                whileHover={(!sending && (draft.trim().length > 0 || attachments.length > 0)) ? { scale: 1.03 } : {}}
-                whileTap={(!sending && (draft.trim().length > 0 || attachments.length > 0)) ? { scale: 0.97 } : {}}
-                onClick={() => void handleSubmit()}
-                disabled={(draft.trim().length === 0 && attachments.length === 0) || sending}
-                className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-black transition-all duration-300 ${
-                  (draft.trim().length > 0 || attachments.length > 0) && !sending
-                    ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-violet-600 text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/40'
-                    : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800'
-                }`}
-              >
-                {sending ? (
-                  <ArrowPathIcon className="h-5 w-5 animate-spin" />
-                ) : (
-                  <>
-                    <span>Send</span>
-                    <PaperAirplaneIcon className="h-4 w-4" />
-                  </>
-                )}
-              </motion.button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <CommentComposer
+      taskUid={taskUid}
+  composer={composer}
+  replyingTo={
+    replyingTo
+      ? {
+          authorName: formatAuthorName(replyingTo.Author),
+          contentPreview: extractPlainText(replyingTo.content),
+        }
+      : null
+  }
+  placeholder={t('task.comments.placeholder', 'Write a message, quote teammates, and attach evidence...')}
+  onCancelReply={() => setReplyingTo(null)}
+  onSubmit={() => void handleSubmit()}
+  onEscape={() => {
+    if (replyingTo) setReplyingTo(null);
+    setActiveMenuUid(null);
+  }}
+/>
     </div>
   );
 };

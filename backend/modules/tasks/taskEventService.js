@@ -1,5 +1,5 @@
 const { TaskEvent, sequelize } = require('../../models');
-
+const taskEvents = require('./taskEvents');
 // Helper function to create value object
 const createValueObject = (fieldName, value) =>
     value ? { [fieldName || 'value']: value } : null;
@@ -202,7 +202,7 @@ const logCommentAdded = async (
     commentContent,
     metadata = {}
 ) => {
-    return await logEvent({
+    const event = await logEvent({
         taskId,
         userId,
         eventType: 'comment_added',
@@ -210,6 +210,16 @@ const logCommentAdded = async (
         newValue: commentContent,
         metadata: { ...metadata, action: 'comment_added' },
     });
+
+    taskEvents.emit('comment.added', {
+        taskId,
+        authorUserId: userId,
+        content: commentContent,
+        commentUid: metadata.comment_uid || null,
+        eventId: event.id,
+    });
+
+    return event;
 };
 
 // Helper function to determine event type based on field name and value
