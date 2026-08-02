@@ -10,6 +10,10 @@ export interface TaskEvent {
         | 'defer_until_changed'
         | 'recurrence_end_date_changed'
         | 'recurrence_type_changed'
+        | 'recurrence_interval_changed'
+        | 'recurrence_weekday_changed'
+        | 'recurrence_month_day_changed'
+        | 'recurrence_week_of_month_changed'
         | 'completion_based_changed'
         | 'project_changed'
         | 'project_id_changed'
@@ -22,7 +26,10 @@ export interface TaskEvent {
         | 'restored'
         | 'today_changed'
         | 'tags_changed'
-        | 'recurrence_changed';
+        | 'recurrence_changed'
+        | 'comment_added'
+        | 'assignee_changed'
+        | 'recurring_occurrence_completed';
     old_value?: any;
     new_value?: any;
     field_name?: string;
@@ -32,12 +39,17 @@ export interface TaskEvent {
         [key: string]: any;
     };
     created_at: string;
+    // ⚠️ اتصلحت: كانت username، دلوقتي متطابقة مع الباك اند (name مش username)
     user?: {
         id: number;
-        username: string;
+        name: string;
+        surname?: string | null;
         email: string;
+        avatar_image?: string | null;
     };
 }
+
+// ... باقي الـ interfaces زي ما هي من غير تعديل
 
 export interface TaskCompletionTime {
     task_id: number;

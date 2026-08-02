@@ -267,6 +267,8 @@ const logTaskUpdate = async (taskId, userId, changes, metadata = {}) => {
 /**
  * Get task timeline (all events for a task)
  */
+// backend/modules/tasks/taskEventService.js
+// في getTaskTimeline - وسّع الـ attributes عشان الصورة والـ surname يظهروا
 const getTaskTimeline = async (taskId) => {
     return await TaskEvent.findAll({
         where: { task_id: taskId },
@@ -275,7 +277,7 @@ const getTaskTimeline = async (taskId) => {
             {
                 model: require('../../models').User,
                 as: 'User',
-                attributes: ['id', 'name', 'email'],
+                attributes: ['id', 'name', 'surname', 'email', 'avatar_image'],
             },
         ],
     });

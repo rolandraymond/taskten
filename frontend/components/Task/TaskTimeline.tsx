@@ -10,6 +10,7 @@ import {
     ClockIcon,
     ExclamationTriangleIcon,
     SparklesIcon,
+    ChatBubbleLeftIcon,
 } from '@heroicons/react/24/outline';
 import { getTodayDateString, getTomorrowDateString, getYesterdayDateString } from '../../utils/dateUtils';
 
@@ -26,7 +27,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ taskUid, refreshKey }) => {
 
     useEffect(() => {
         const fetchTimeline = async () => {
-            if (!taskUid || taskUid === undefined) {
+            if (!taskUid) {
                 setLoading(false);
                 setEvents([]);
                 return;
@@ -37,13 +38,11 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ taskUid, refreshKey }) => {
 
             try {
                 const timeline = await getTaskTimeline(taskUid);
-                // Sort events by created_at in descending order (most recent first)
                 const sortedTimeline = timeline.sort(
                     (a, b) =>
                         new Date(b.created_at).getTime() -
                         new Date(a.created_at).getTime()
                 );
-                // Show all events, scrolling will handle display
                 setEvents(sortedTimeline);
             } catch (err) {
                 console.error('Error fetching task timeline:', err);
@@ -57,15 +56,12 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ taskUid, refreshKey }) => {
     }, [taskUid, refreshKey]);
 
     const getTranslatedStatusLabel = (status: number | string): string => {
-        // Handle both numeric and string status values
         const statusMap: Record<string | number, string> = {
-            // Numeric values
             0: t('status.notStarted'),
             1: t('status.inProgress'),
             2: t('status.completed'),
             3: t('status.archived'),
             4: t('status.waiting'),
-            // String values
             not_started: t('status.notStarted'),
             in_progress: t('status.inProgress'),
             done: t('status.completed'),
@@ -73,8 +69,23 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ taskUid, refreshKey }) => {
             archived: t('status.archived'),
             waiting: t('status.waiting'),
         };
-
         return statusMap[status] || t('status.unknown', { status });
+    };
+
+    // 🆕 اسم اليوزر بالكامل، مع fallback للـ ID لو مفيش user object
+    const getUserDisplayName = (event: TaskEvent): string => {
+        if (event.user?.name) {
+            return event.user.surname
+                ? `${event.user.name} ${event.user.surname}`
+                : event.user.name;
+        }
+        return `${t('timeline.userFallback', 'User')} #${event.user_id}`;
+    };
+
+    // 🆕 حروف الأفاتار (لو مفيش صورة)
+    const getUserInitials = (event: TaskEvent): string => {
+        const name = event.user?.name || `U${event.user_id}`;
+        return name.trim().charAt(0).toUpperCase();
     };
 
     const getEventDescription = (event: TaskEvent) => {
@@ -134,14 +145,8 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ taskUid, refreshKey }) => {
                             daily: t('recurrence.daily', 'Daily'),
                             weekly: t('recurrence.weekly', 'Weekly'),
                             monthly: t('recurrence.monthly', 'Monthly'),
-                            monthly_weekday: t(
-                                'recurrence.monthlyWeekday',
-                                'Monthly (weekday)'
-                            ),
-                            monthly_last_day: t(
-                                'recurrence.monthlyLastDay',
-                                'Monthly (last day)'
-                            ),
+                            monthly_weekday: t('recurrence.monthlyWeekday', 'Monthly (weekday)'),
+                            monthly_last_day: t('recurrence.monthlyLastDay', 'Monthly (last day)'),
                         };
                         return typeMap[type] || type;
                     };
@@ -149,6 +154,16 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ taskUid, refreshKey }) => {
                 }
                 return t('timeline.events.recurrenceTypeChanged');
             }
+            case 'recurrence_interval_changed':
+                return t('timeline.events.recurrenceIntervalChanged', 'Recurrence interval updated');
+            case 'recurrence_weekday_changed':
+                return t('timeline.events.recurrenceWeekdayChanged', 'Recurrence weekday updated');
+            case 'recurrence_month_day_changed':
+                return t('timeline.events.recurrenceMonthDayChanged', 'Recurrence day of month updated');
+            case 'recurrence_week_of_month_changed':
+                return t('timeline.events.recurrenceWeekOfMonthChanged', 'Recurrence week of month updated');
+            case 'recurring_occurrence_completed':
+                return t('timeline.events.recurringOccurrenceCompleted', 'Recurring occurrence completed');
             case 'completion_based_changed':
                 return t('timeline.events.completionBasedChanged');
             case 'name_changed':
@@ -165,8 +180,22 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ taskUid, refreshKey }) => {
                 return t('timeline.events.tagsUpdated');
             case 'archived':
                 return t('timeline.events.taskArchived');
+            case 'deleted':
+                return t('timeline.events.taskDeleted', 'Task deleted');
+            case 'restored':
+                return t('timeline.events.taskRestored', 'Task restored');
             case 'today_changed':
                 return t('timeline.events.todayFlagChanged');
+            case 'assignee_changed': {
+                const oldAssignee = old_value?.assignee;
+                const newAssignee = new_value?.assignee;
+                if (oldAssignee || newAssignee) {
+                    return `${t('timeline.events.assignee', 'Assignee')}: ${oldAssignee || t('timeline.events.none')} → ${newAssignee || t('timeline.events.none')}`;
+                }
+                return t('timeline.events.assigneeChanged', 'Assignee updated');
+            }
+            case 'comment_added':
+                return t('timeline.events.commentAdded', 'added a comment');
             default:
                 return getEventTypeLabel(event_type);
         }
@@ -174,11 +203,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ taskUid, refreshKey }) => {
 
     const formatDate = (dateString: string | null) => {
         if (!dateString) return t('timeline.events.none');
-
-        // Handle ISO date strings (e.g., "2025-07-15T00:00:00.000Z")
         const date = new Date(dateString);
-
-        // Check if it's today, tomorrow, or yesterday using local time
         const today = getTodayDateString();
         const tomorrow = getTomorrowDateString();
         const yesterday = getYesterdayDateString();
@@ -188,7 +213,6 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ taskUid, refreshKey }) => {
         if (dateOnly === tomorrow) return t('dateIndicators.tomorrow');
         if (dateOnly === yesterday) return t('dateIndicators.yesterday');
 
-        // Return formatted date (e.g., "Jul 15, 2025")
         return date.toLocaleDateString(undefined, {
             year: 'numeric',
             month: 'short',
@@ -204,12 +228,24 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ taskUid, refreshKey }) => {
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-        if (diffMinutes < 1) return 'Just now';
+        if (diffMinutes < 1) return t('timeline.justNow', 'Just now');
         if (diffMinutes < 60) return `${diffMinutes}m ago`;
         if (diffHours < 24) return `${diffHours}h ago`;
         if (diffDays < 7) return `${diffDays}d ago`;
 
         return date.toLocaleDateString();
+    };
+
+    // 🆕 الوقت الدقيق بالساعة والدقيقة والتاريخ الكامل
+    const formatExactTime = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
     };
 
     if (loading) {
@@ -254,41 +290,82 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ taskUid, refreshKey }) => {
 
     return (
         <div className="max-h-[36rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-            <div className="space-y-2">
+            <div className="space-y-3">
                 {events.map((event) => (
-                    <div key={event.id} className="relative">
-                        {/* Event item */}
-                        <div className="py-1 relative z-10">
-                            {/* Content */}
-                            <div className="min-w-0">
-                                <div className="text-xs font-medium text-gray-900 dark:text-gray-100 leading-tight">
-                                    {getEventDescription(event)}
+                    <div key={event.id} className="relative flex gap-2.5">
+                        {/* 🆕 Avatar */}
+                        <div className="flex-shrink-0 mt-0.5">
+                            {event.user?.avatar_image ? (
+                                <img
+                                    src={event.user.avatar_image}
+                                    alt={getUserDisplayName(event)}
+                                    className="h-7 w-7 rounded-full object-cover border border-gray-200 dark:border-gray-700"
+                                />
+                            ) : (
+                                <div className="h-7 w-7 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-semibold">
+                                    {getUserInitials(event)}
                                 </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    {formatTimeAgo(event.created_at)}
-                                </div>
+                            )}
+                        </div>
 
-                                {/* Additional details for certain events */}
-                                {event.event_type === 'tags_changed' &&
-                                    event.new_value && (
-                                        <div className="mt-1.5 flex flex-wrap gap-1">
-                                            {Array.isArray(event.new_value) &&
-                                                event.new_value.map(
-                                                    (
-                                                        tag: any,
-                                                        tagIndex: number
-                                                    ) => (
-                                                        <span
-                                                            key={tagIndex}
-                                                            className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800"
-                                                        >
-                                                            {tag.name || tag}
-                                                        </span>
-                                                    )
-                                                )}
-                                        </div>
-                                    )}
+                        <div className="min-w-0 flex-1 py-0.5">
+                            {/* 🆕 اسم اليوزر + الـ id + الفعل */}
+                            <div className="text-xs leading-tight">
+                                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                                    {getUserDisplayName(event)}
+                                </span>
+                                <span className="text-gray-400 dark:text-gray-500 mx-1">
+                                    (ID: {event.user_id})
+                                </span>
                             </div>
+
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-tight mt-0.5">
+                                {getEventDescription(event)}
+                            </div>
+
+                            {/* 🆕 الوقت الدقيق + النسبي مع بعض */}
+                            <div
+                                className="text-xs text-gray-500 dark:text-gray-400 mt-1"
+                                title={new Date(event.created_at).toISOString()}
+                            >
+                                {formatExactTime(event.created_at)}
+                                <span className="mx-1">·</span>
+                                {formatTimeAgo(event.created_at)}
+                            </div>
+
+                            {/* 🆕 محتوى الكومنت */}
+                            {event.event_type === 'comment_added' &&
+                                event.new_value?.comment && (
+                                    <div className="mt-1.5 flex items-start gap-1.5 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-md px-2.5 py-1.5">
+                                        <ChatBubbleLeftIcon className="h-3.5 w-3.5 mt-0.5 text-gray-400 flex-shrink-0" />
+                                        <span className="text-xs text-gray-700 dark:text-gray-200 whitespace-pre-wrap break-words">
+                                            {event.new_value.comment}
+                                        </span>
+                                    </div>
+                                )}
+
+                            {/* الـ tags زي ما هي */}
+                            {event.event_type === 'tags_changed' &&
+                                event.new_value &&
+                                Array.isArray(event.new_value) && (
+                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                        {event.new_value.map((tag: any, tagIndex: number) => (
+                                            <span
+                                                key={tagIndex}
+                                                className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800"
+                                            >
+                                                {tag.name || tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+
+                            {/* 🆕 مصدر الحدث (web/api/telegram) لو موجود */}
+                            {event.metadata?.source && event.metadata.source !== 'web' && (
+                                <div className="mt-1 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                                    via {event.metadata.source}
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}

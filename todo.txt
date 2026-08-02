@@ -1,0 +1,37 @@
+Tasksten7 Development Roadmap
+
+Phase 1 >>> Deadline: 11 Days
+
+Fix the Permission System >>> 4 Days
+
+Fix Moving Tasks Between Projects >>> 0.5 Day
+
+Fix Assignment Notification Task Access >>> 0.5 Day
+
+Complete Comment CRUD + Soft Delete + History >>> 2 Days
+
+Finish Realtime Comments >>> 1 Day
+
+Fix Notification Count Synchronization + Improve Assignment Input Style >>> 1 Day
+
+Migrate SQLite to PostgreSQL >>> 2 Days
+
+Phase 2 >>> Deadline: 11–14 Days
+
+Fix Insights Dashboard Task KPIs & Activity >>> 3–5 Days
+
+Add Check-in & Check-out >>> 3 Days
+
+Add Break Status & Break Tracking >>> 1–2 Days
+
+Add Scheduled User Update Requests + Attendance & Work-Update Reporting >>> 4 Days
+
+Phase 3 >>> Deadline: 8–9 Days
+
+Production Configuration Cleanup >>> 2 Days
+
+Refactor TasksToday >>> 0.5–1 Day
+
+Permission & Automated Testing >>>  
+
+Production Deployment & Backup Automation >>> 1 Day

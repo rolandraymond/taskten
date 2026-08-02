@@ -16,3 +16,6 @@ npm run lint -- "backend/modules/admin/service.js" --fix
 
 tree /f /a | findstr /v /i "node_modules dist .git .next .cache" > project_structure.txt
 
+.......
+> echo $env:NODE_ENV
+npm run db:sync

@@ -11,6 +11,9 @@ const API_BASE = '/api';
 /**
  * Get task timeline (all events for a specific task)
  */
+/**
+ * Get task timeline (all events for a specific task)
+ */
 export const getTaskTimeline = async (
     taskUid: string
 ): Promise<TaskEvent[]> => {
@@ -24,7 +27,15 @@ export const getTaskTimeline = async (
         );
     }
 
-    return response.json();
+    const data = await response.json();
+
+    // 🆕 Sequelize بيرجع الـ association بالاسم "User" (كابيتال)
+    // لأن الـ alias في الموديل معرّف كده: as: 'User'
+    // بنطبعها هنا لـ "user" عشان تتطابق مع TaskEvent interface
+    return data.map((event: any) => ({
+        ...event,
+        user: event.User ?? event.user ?? null,
+    }));
 };
 
 /**
@@ -180,9 +191,9 @@ export const getEventTypeLabel = (eventType: string): string => {
         today_changed: 'Today Flag Changed',
         tags_changed: 'Tags Changed',
         recurrence_changed: 'Recurrence Changed',
-        assigned: 'Task Assigned',        // حدث جديد
-        unassigned: 'Task Unassigned',    // حدث جديد
-        assignment_changed: 'Assignees Updated', // حدث جديد لتحديث المكلفين بدون ما يفرق بين تعيين أو إلغاء تعيين
+        comment_added: 'Comment Added',
+        assignee_changed: 'Assignee Updated', // ✅ ده الصح، مطابق للباك اند
+        recurring_occurrence_completed: 'Recurring Occurrence Completed',
     };
 
     return labels[eventType] || eventType;
