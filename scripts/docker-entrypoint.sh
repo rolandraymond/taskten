@@ -68,6 +68,28 @@ else
     TARGET_GROUP=$(getent group "$PGID" | cut -d: -f1)
 fi
 
+# One-time Railway SQLite import
+INCOMING_DB="/app/backend/db/incoming.sqlite3"
+PRODUCTION_DB="/app/backend/db/production.sqlite3"
+
+if [ -f "$INCOMING_DB" ]; then
+    echo "Incoming SQLite database found. Importing..."
+
+    # Keep a backup of the current Railway database
+    if [ -f "$PRODUCTION_DB" ]; then
+        cp "$PRODUCTION_DB" "/app/backend/db/production-before-import.sqlite3"
+        echo "Current production database backed up."
+    fi
+
+    # Remove WAL/SHM belonging to the old database
+    rm -f "${PRODUCTION_DB}-wal" "${PRODUCTION_DB}-shm"
+
+    # Replace production DB with uploaded laptop DB
+    mv "$INCOMING_DB" "$PRODUCTION_DB"
+
+    echo "SQLite database import completed."
+fi
+
 echo "Setting ownership of application directories to $TARGET_USER:$TARGET_GROUP"
 mkdir -p /app/backend/db /app/backend/certs /app/backend/uploads
 chown -R "$TARGET_USER":"$TARGET_GROUP" /app/backend /app/scripts
