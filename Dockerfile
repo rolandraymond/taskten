@@ -110,8 +110,8 @@ COPY --from=builder --chown=app:app /app/public/locales ./backend/dist/locales
 RUN mkdir -p /app/backend/db /app/backend/certs /app/backend/uploads && \
     chown -R app:app /app/backend/db /app/backend/certs /app/backend/uploads
 
-VOLUME ["/app/backend/db"]
-VOLUME ["/app/backend/uploads"]
+# VOLUME ["/app/backend/db"]
+# VOLUME ["/app/backend/uploads"]
 
 EXPOSE 3002
 
