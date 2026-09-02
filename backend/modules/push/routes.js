@@ -3,6 +3,12 @@ const router = express.Router();
 const service = require('./service');
 const { publicKey } = require('./vapid');
 
+router.get('/push/vapid-public-key', (req, res) => {
+    res.json({
+        publicKey,
+    });
+});
+
 router.post('/push/subscribe', async (req, res, next) => {
     try {
         console.error('[PUSH SUBSCRIBE DEBUG]', {
@@ -38,6 +44,21 @@ router.post('/push/subscribe', async (req, res, next) => {
         console.error('PARENT:', error?.parent);
         console.error('ORIGINAL:', error?.original);
 
+        next(error);
+    }
+});
+
+router.post('/push/unsubscribe', async (req, res, next) => {
+    try {
+        await service.unsubscribe(
+            req.currentUser.id,
+            req.body.endpoint
+        );
+
+        res.json({
+            success: true,
+        });
+    } catch (error) {
         next(error);
     }
 });
