@@ -1,3 +1,5 @@
+import { getCsrfToken } from '../utils/csrfService';
+
 function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding)
@@ -31,6 +33,10 @@ export async function enablePushNotifications(): Promise<boolean> {
         credentials: 'include',
     });
 
+    if (!response.ok) {
+        throw new Error(`Failed to get VAPID public key (${response.status})`);
+    }
+
     const { publicKey } = await response.json();
 
     if (!publicKey) {
@@ -42,16 +48,27 @@ export async function enablePushNotifications(): Promise<boolean> {
         applicationServerKey: urlBase64ToArrayBuffer(publicKey),
     });
 
-    await fetch('/api/push/subscribe', {
+    const csrfToken = await getCsrfToken();
+
+    const subscribeResponse = await fetch('/api/push/subscribe', {
         method: 'POST',
         credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
+            'x-csrf-token': csrfToken,
         },
         body: JSON.stringify({
             subscription,
         }),
     });
+
+    if (!subscribeResponse.ok) {
+        const errorBody = await subscribeResponse.text();
+
+        throw new Error(
+            `Push subscription failed (${subscribeResponse.status}): ${errorBody}`
+        );
+    }
 
     return true;
 }
