@@ -494,4 +494,87 @@ module.exports = {
     fetchProjectTasks,
     fetchSomedayFallbackTasks,
     fetchTasksCompletedToday,
+    fetchCompletedTasksHistory,
 };
+
+async function fetchCompletedTasksHistory(
+    userId,
+    userTimezone,
+    days = 30
+) {
+    const safeTimezone = getSafeTimezone(userTimezone);
+
+    const start = moment
+        .tz(safeTimezone)
+        .subtract(days - 1, 'days')
+        .startOf('day')
+        .utc()
+        .toDate();
+
+    const end = moment
+        .tz(safeTimezone)
+        .endOf('day')
+        .utc()
+        .toDate();
+
+    const regularCompletedTasks = await Task.findAll({
+        where: {
+            user_id: userId,
+            status: Task.STATUS.DONE,
+            parent_task_id: null,
+            recurring_parent_id: null,
+            completed_at: {
+                [Op.between]: [start, end],
+            },
+        },
+        include: getTaskIncludeConfigLight(),
+    });
+
+    const { RecurringCompletion } = require('../../../models');
+
+    const recurringCompletions = await RecurringCompletion.findAll({
+        where: {
+            completed_at: {
+                [Op.between]: [start, end],
+            },
+            skipped: false,
+        },
+        include: [
+            {
+                model: Task,
+                as: 'Task',
+                where: {
+                    user_id: userId,
+                    parent_task_id: null,
+                },
+                include: getTaskIncludeConfigLight(),
+            },
+        ],
+    });
+
+    const recurringCompletedTasks = recurringCompletions.map((rc) => {
+        const task = rc.Task;
+
+        task.dataValues.completed_at = rc.completed_at;
+        task.dataValues.status = Task.STATUS.DONE;
+
+        task.status = Task.STATUS.DONE;
+        task.completed_at = rc.completed_at;
+
+        return task;
+    });
+
+    const allCompletedTasks = [
+        ...regularCompletedTasks,
+        ...recurringCompletedTasks,
+    ];
+
+    allCompletedTasks.sort((a, b) => {
+        const aTime = a.completed_at || a.dataValues.completed_at;
+        const bTime = b.completed_at || b.dataValues.completed_at;
+
+        return new Date(bTime).getTime() - new Date(aTime).getTime();
+    });
+
+    return allCompletedTasks;
+}

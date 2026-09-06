@@ -286,3 +286,24 @@ export const assignSubtask = async (
 
     return await response.json();
 };
+
+export const fetchCompletedTaskHistory = async (
+    days = 30
+): Promise<Task[]> => {
+    const response = await fetch(
+        getApiPath(`tasks/completed-history?days=${days}`),
+        {
+            credentials: 'include',
+            headers: getDefaultHeaders(),
+        }
+    );
+
+    await handleAuthResponse(
+        response,
+        'Failed to fetch completed task history.'
+    );
+
+    const result = await response.json();
+
+    return Array.isArray(result.tasks) ? result.tasks : [];
+};

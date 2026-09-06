@@ -40,11 +40,9 @@ import {
     getTodayDateString,
 } from '../../utils/dateUtils';
 import { getCurrentUser } from '../../utils/userUtils';
-// ✅ وحط ده بدله في أعلى الـ component
 /* import { usePermissions } from '../../hooks/usePermissions';
 import { ACTIONS } from '../../config/permissions'; */
 const TaskDetails: React.FC = () => {
-    // ✅ سحب بيانات اليوزر الحالي مباشرة لتحديد هل هو أدمن ولا لأ
     const currentUser = getCurrentUser();
     const isUserAdmin = currentUser?.role === 'admin' || currentUser?.is_admin;
     /* const { can } = usePermissions(); */

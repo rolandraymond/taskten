@@ -156,13 +156,14 @@ export const getUploadUrl = (url?: string | null) => {
 };
 
 export const getWebSocketOrigin = () => {
-    const backendOrigin = getBackendOrigin();
+    if (typeof window !== 'undefined') {
+        const wsProtocol =
+            window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-    if (!backendOrigin) return '';
+        return `${wsProtocol}//${window.location.host}`;
+    }
 
-    return backendOrigin
-        .replace(/^https:\/\//, 'wss://')
-        .replace(/^http:\/\//, 'ws://');
+    return '';
 };
 
 export const getTaskWebSocketUrl = () => {

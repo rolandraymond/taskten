@@ -23,7 +23,7 @@ const setupTaskSocket = require('./realtime/taskSocket');
 
 app.options('/caldav*', handleOptions);
 app.options('/.well-known/caldav*', handleOptions);
-app.options('/api/v1/caldav*', handleOptions); // لو المسار بتاعك جوه الـ api
+app.options('/api/v1/caldav*', handleOptions); 
 
 // app.use(cors());
 

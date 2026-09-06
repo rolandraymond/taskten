@@ -33,6 +33,20 @@ function setupTaskSocket(server) {
         });
     });
 
+    taskEvents.on('task.created', (payload) => {
+        broadcast({
+            type: 'task.created',
+            payload,
+        });
+    });
+
+    taskEvents.on('task.deleted', (payload) => {
+        broadcast({
+            type: 'task.deleted',
+            payload,
+        });
+    });
+
     console.log('[WebSocket] Task socket ready on /tasksten-ws/tasks');
 
     return wss;

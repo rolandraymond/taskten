@@ -17,12 +17,11 @@ interface NotesStore {
     setError: (isError: boolean) => void;
     loadNotes: () => Promise<void>;
 }
-// 1. أضف الـ Interface
 interface UsersStore {
     users: User[];
     isLoading: boolean;
     loadUsers: () => Promise<void>;
-    changeUserRole: (userId: number, newRole: string) => Promise<void>; // 👈 الإضافة
+    changeUserRole: (userId: number, newRole: string) => Promise<void>; 
 }
 interface AreasStore {
     areas: Area[];
@@ -616,24 +615,32 @@ export const useStore = create<StoreState>((set: any) => ({
                     ),
                 },
             })),
-        updateTaskInStore: (updatedTask) =>
-            set((state) => ({
+    updateTaskInStore: (updatedTask) =>
+        set((state) => {
+            const exists = state.tasksStore.tasks.some(
+                (task) => task.id === updatedTask.id
+            );
+
+            return {
                 tasksStore: {
                     ...state.tasksStore,
-                    tasks: state.tasksStore.tasks.map((task) =>
-                        task.id === updatedTask.id
-                            ? {
-                                  ...task,
-                                  ...updatedTask,
-                                  subtasks:
-                                      updatedTask.subtasks ||
-                                      task.subtasks ||
-                                      [],
-                              }
-                            : task
-                    ),
+                    tasks: exists
+                        ? state.tasksStore.tasks.map((task) =>
+                            task.id === updatedTask.id
+                                ? {
+                                        ...task,
+                                        ...updatedTask,
+                                        subtasks:
+                                            updatedTask.subtasks ||
+                                            task.subtasks ||
+                                            [],
+                                    }
+                                : task
+                        )
+                        : [updatedTask, ...state.tasksStore.tasks],
                 },
-            })),
+            };
+        }),
     },
     inboxStore: {
         inboxItems: [],

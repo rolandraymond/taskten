@@ -761,20 +761,22 @@ const TasksToday: React.FC = () => {
             isMounted.current = false;
         };
     }, []); // Empty dependency array - only run once on mount
-    useEffect(() => {
-    const socket = connectTaskSocket((message) => {
-        if (message.type === 'task.completed') {
-            setRecentCompletedTasks((prev) => [
-                message.payload,
-                ...prev.filter((t) => t.uid !== message.payload.uid),
-            ].slice(0, 10));
-        }
-    });
+        // useEffect(() => {
+        //     const disconnect = connectTaskSocket((message) => {
+        //         if (message.type === 'task.completed') {
+        //             setRecentCompletedTasks((prev) =>
+        //                 [
+        //                     message.payload,
+        //                     ...prev.filter((t) => t.uid !== message.payload.uid),
+        //                 ].slice(0, 10)
+        //             );
+        //         }
+        //     });
 
-    return () => {
-        socket?.close();
-    };
-}, []);
+        //     return disconnect;
+        // }, []);
+
+
     // Memoize task handlers to prevent recreating functions on each render
     const handleTaskUpdate = useCallback(
         async (updatedTask: Task): Promise<void> => {
@@ -1062,6 +1064,8 @@ const TasksToday: React.FC = () => {
                 completed_at: updatedTask.completed_at,
             });
 
+        
+
             setMetrics((prevMetrics) => {
                 const newMetrics = { ...prevMetrics };
 
@@ -1234,7 +1238,98 @@ const TasksToday: React.FC = () => {
             useStore.getState().tasksStore.updateTaskInStore(updatedTask);
         },
         []
-    );
+            );
+        const removeTaskFromState = useCallback((taskUid: string): void => {
+            if (!isMounted.current) return;
+
+            setMetrics((prevMetrics) => {
+                const removeTask = (list: Task[]) =>
+                    (list || []).filter((task) => task.uid !== taskUid);
+
+                const newMetrics = {
+                    ...prevMetrics,
+                    today_plan_tasks: removeTask(prevMetrics.today_plan_tasks),
+                    suggested_tasks: removeTask(prevMetrics.suggested_tasks),
+                    tasks_due_today: removeTask(prevMetrics.tasks_due_today),
+                    tasks_overdue: removeTask(prevMetrics.tasks_overdue),
+                    tasks_in_progress: removeTask(prevMetrics.tasks_in_progress),
+                    tasks_completed_today: removeTask(
+                        prevMetrics.tasks_completed_today
+                    ),
+                };
+
+                newMetrics.total_open_tasks =
+                    newMetrics.today_plan_tasks.length +
+                    newMetrics.suggested_tasks.length +
+                    newMetrics.tasks_due_today.length +
+                    newMetrics.tasks_overdue.length +
+                    newMetrics.tasks_in_progress.length;
+
+                return newMetrics;
+            });
+
+            const currentTasks = useStore.getState().tasksStore.tasks;
+
+            useStore
+                .getState()
+                .tasksStore.setTasks(
+                    currentTasks.filter((task: Task) => task.uid !== taskUid)
+                );
+
+            setRecentCompletedTasks((prev) =>
+                prev.filter((task) => task.uid !== taskUid)
+            );
+        }, []);
+
+        useEffect(() => {
+            const disconnect = connectTaskSocket((message) => {
+                if (
+                    message.type === 'task.created' ||
+                    message.type === 'task.updated'
+                ) {
+                    const updatedTask = message.payload?.task as Task | undefined;
+
+                    if (!updatedTask) return;
+
+                    updateTaskInState(updatedTask);
+
+                    if (!isTaskDone(updatedTask.status)) {
+                        setRecentCompletedTasks((prev) =>
+                            prev.filter(
+                                (task) => task.uid !== updatedTask.uid
+                            )
+                        );
+                    }
+
+                    return;
+                }
+
+                if (message.type === 'task.completed') {
+                    if (!message.payload?.uid) return;
+
+                    setRecentCompletedTasks((prev) =>
+                        [
+                            message.payload,
+                            ...prev.filter(
+                                (task) => task.uid !== message.payload.uid
+                            ),
+                        ].slice(0, 10)
+                    );
+
+                    return;
+                }
+
+                if (message.type === 'task.deleted') {
+                    const deletedUid = message.payload?.uid;
+
+                    if (!deletedUid) return;
+
+                    removeTaskFromState(deletedUid);
+                }
+            });
+
+            return disconnect;
+        }, [updateTaskInState, removeTaskFromState]);
 
     const handleTaskCompletionToggle = useCallback(
         async (updatedTask: Task): Promise<void> => {

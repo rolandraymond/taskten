@@ -82,6 +82,10 @@ const {
 
 const { getTaskMetrics } = require('./queries/metrics-computation');
 
+const {
+    fetchCompletedTasksHistory,
+} = require('./queries/metrics-queries');
+
 const { getSubtasks } = require('./operations/subtasks');
 
 const {
@@ -433,6 +437,36 @@ router.get(
 
     }
 );
+
+router.get('/tasks/completed-history', async (req, res) => {
+    try {
+        const requestedDays = parseInt(req.query.days, 10) || 30;
+        const days = Math.min(Math.max(requestedDays, 1), 365);
+
+        const tasks = await fetchCompletedTasksHistory(
+            req.currentUser.id,
+            req.currentUser.timezone,
+            days
+        );
+
+        const serializedTasks = await serializeTasks(
+            tasks,
+            req.currentUser.timezone,
+            { preserveOriginalName: true }
+        );
+
+        res.json({
+            tasks: serializedTasks,
+        });
+    } catch (error) {
+        logError('Error fetching completed task history:', error);
+
+        res.status(500).json({
+            error: 'Failed to load completed task history',
+        });
+    }
+});
+
 router.get('/tasks/metrics', async (req, res) => {
     try {
         const response = await getTaskMetrics(
@@ -542,6 +576,14 @@ router.post('/task', async (req, res) => {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             Pragma: 'no-cache',
             Expires: '0',
+        });
+
+        
+        taskEvents.emit('task.created', {
+            task_id: serializedTask.id,
+            uid: serializedTask.uid,
+            action: 'created',
+            task: serializedTask,
         });
 
         res.status(201).json(serializedTask);
@@ -934,6 +976,13 @@ router.patch('/task/:uid', requireTaskWriteAccess, async (req, res) => {
             { skipDisplayNameTransform: true }
         );
 
+        taskEvents.emit('task.updated', {
+            task_id: task.id,
+            uid: task.uid,
+            action: 'updated',
+            task: serializedTask,
+        });
+
         res.json(serializedTask);
     } catch (error) {
         logError('Error updating task:', error);
@@ -1007,6 +1056,11 @@ router.delete('/task/:uid', requireTaskWriteAccess, async (req, res) => {
         } finally {
             await sequelize.query('PRAGMA foreign_keys = ON');
         }
+        taskEvents.emit('task.deleted', {
+            task_id: taskId,
+            uid: task.uid,
+            action: 'deleted',
+        });
 
         res.json({ message: 'Task successfully deleted' });
     } catch (error) {
@@ -1048,8 +1102,8 @@ router.get('/task/:uid/subtasks', async (req, res) => {
     }
 });
 
-// 💡 متنساش تعمل استدعاء للـ Permissions Service فوق في أول الملف لو مش موجودة
-// const { getAccess, ACCESS } = require('../../services/permissionsService'); // عدل المسار حسب مكان الملف
+
+// const { getAccess, ACCESS } = require('../../services/permissionsService'); 
 
 router.get('/task/:uid/next-iterations', async (req, res) => {
     try {
@@ -1063,7 +1117,6 @@ router.get('/task/:uid/next-iterations', async (req, res) => {
             return res.status(404).json({ error: 'Task not found' });
         }
 
-        // 🌟 التعديل السحري: استخدام نظام الصلاحيات المركزي بدل الشرط القديم
         const accessLevel = await getAccess(
             req.currentUser.id,
             'task',
@@ -1093,8 +1146,6 @@ router.get('/task/:uid/next-iterations', async (req, res) => {
 
 // ─── Task Assignment Routes (Admin Only) ──────────────────────────────────────
 
-// ✅ استخدام الصلاحية المخصصة بدل الأدمن المطلق
-// ✅ استخدام الصلاحية المخصصة بدل الأدمن المطلق
 router.put(
     '/task/:uid/assign-multiple',
     requirePermission(ACTIONS.ASSIGN_TASK),
@@ -1107,7 +1158,6 @@ router.put(
             const task = await taskRepository.findByUid(req.params.uid);
             if (!task) return res.status(404).json({ error: 'Task not found' });
 
-            // 1. جلب التكليفات الحالية (قبل الحذف) لمقارنتها بالجديدة
             const currentAssignments = await TaskAssignment.findAll({
                 where: { task_id: task.id },
             });
@@ -1116,15 +1166,12 @@ router.put(
             );
             const newUserIdsStr = userIdsArray.map((id) => id.toString());
 
-            // 2. استخراج الموظفين الجدد فقط (عشان نبعتلهم إشعار هما بس ومنعملش إزعاج للباقي)
             const newlyAssignedIds = newUserIdsStr.filter(
                 (id) => !currentUserIds.includes(id)
             );
 
-            // 3. تنظيف التكليفات القديمة
             await TaskAssignment.destroy({ where: { task_id: task.id } });
 
-            // 4. إضافة التكليفات الجديدة
             if (userIdsArray.length > 0) {
                 const assignments = userIdsArray.map((userId) => ({
                     task_id: task.id,
@@ -1134,7 +1181,6 @@ router.put(
 
                 await TaskAssignment.bulkCreate(assignments);
 
-                // 🌟 إرسال الإشعار للموظفين الجدد "فقط"
                 for (const userId of newlyAssignedIds) {
                     taskEvents.emit('task.assigned', {
                         taskId: task.id,
@@ -1145,15 +1191,7 @@ router.put(
                 }
             }
 
-            // 🌟 التحديث اللحظي (Real-time Sync)
-            // نطلق حدث عام بأن هذه المهمة تم تحديثها، ليقوم الـ WebSocket/SSE بإبلاغ باقي المتصفحات
-            taskEvents.emit('task.updated', {
-                task_id: task.id,
-                uid: task.uid,
-                action: 'assignments_changed',
-            });
 
-            // 5. جلب المهمة بالبيانات الجديدة (عشان الفرانتد يقدر يقرأ صور وأسماء الموظفين فوراً)
             const taskWithAssociations = await taskRepository.findById(
                 task.id,
                 {
@@ -1166,8 +1204,14 @@ router.put(
                 req.currentUser.timezone,
                 { skipDisplayNameTransform: true }
             );
+            taskEvents.emit('task.updated', {
+                task_id: task.id,
+                uid: task.uid,
+                action: 'assignments_changed',
+                task: serializedTask,
+            });
 
-            // نرد بالـ Task كاملة بدل رسالة نصية لتطابق توقعات الـ Frontend
+
             res.json(serializedTask);
         } catch (error) {
             console.error('Assign multiple error:', error);
@@ -1195,7 +1239,6 @@ router.delete(
                     .json({ error: 'Assignment not found for this user' });
             }
 
-            // تسجيل الحدث في الـ audit log فقط (مش إشعار)
             try {
                 await logEvent({
                     taskId: task.id,
@@ -1212,8 +1255,28 @@ router.delete(
                     eventErr.message
                 );
             }
+            const taskWithAssociations = await taskRepository.findById(task.id, {
+    include: TASK_INCLUDES_WITH_SUBTASKS,
+});
 
-            res.json({ message: 'Task unassigned successfully' });
+            const serializedTask = await serializeTask(
+                taskWithAssociations,
+                req.currentUser.timezone,
+                { skipDisplayNameTransform: true }
+            );
+
+            taskEvents.emit('task.updated', {
+                task_id: task.id,
+                uid: task.uid,
+                action: 'assignments_changed',
+                task: serializedTask,
+            });
+
+            res.json({
+                message: 'Task unassigned successfully',
+                task: serializedTask,
+            });
+
         } catch (error) {
             console.error('Error unassigning task:', error);
             res.status(500).json({ error: 'Internal server error' });

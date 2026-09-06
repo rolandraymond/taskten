@@ -189,7 +189,6 @@ class NotificationsService {
 if (!task) return;
         const sources = ['web', 'push'];
 
-        // لو عنده Telegram مفعّل ضيفه
         if (shouldSendTelegramNotification(user, 'task_assigned')) {
             sources.push('telegram');
         }
@@ -201,6 +200,7 @@ if (!task) return;
             message: `You have been assigned to: ${taskName}`,
             data: {
     taskId,
+    taskUid: task.uid,
     assignedBy: assignedById,
     url: `/task/${task.uid}`,
 },

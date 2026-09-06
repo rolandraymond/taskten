@@ -107,6 +107,20 @@ class ProjectsRepository extends BaseRepository {
                     },
                     include: [
                         {
+                                model: User,
+                                as: 'Assignees',
+                                attributes: [
+                                    'id',
+                                    'uid',
+                                    'name',
+                                    'surname',
+                                    'email',
+                                    'avatar_image',
+                                ],
+                                through: { attributes: [] },
+                                required: false,
+                            },
+                        {
                             model: Tag,
                             attributes: ['id', 'name', 'uid'],
                             through: { attributes: [] },

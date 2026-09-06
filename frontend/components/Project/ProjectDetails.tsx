@@ -37,6 +37,8 @@ import IconSortDropdown from '../Shared/IconSortDropdown';
 import LoadingSpinner from '../Shared/LoadingSpinner';
 import { usePersistedModal } from '../../hooks/usePersistedModal';
 import { getApiPath } from '../../config/paths';
+import { connectTaskSocket } from '../../utils/taskSocket';
+
 import ProjectInsightsPanel from './ProjectInsightsPanel';
 import ProjectBanner from './ProjectBanner';
 import BannerEditModal from './BannerEditModal';
@@ -58,8 +60,8 @@ const ProjectDetails: React.FC = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [notes, setNotes] = useState<Note[]>([]);
     const [loading, setLoading] = useState(false);
-    // ❌ امسح السطر القديم: const [error, setError] = useState(false);
-    // ✅ ضيف السطر الجديد:
+    // const [error, setError] = useState(false);
+
     const [error, setError] = useState<{ isError: boolean; status?: number }>({
         isError: false,
     });
@@ -249,13 +251,70 @@ const ProjectDetails: React.FC = () => {
                 );
                 setLoading(false);
             } catch (err: any) {
-                // ✅ تسجيل كود الخطأ (403 أو غيره)
                 setError({ isError: true, status: err?.status || 500 });
                 setLoading(false);
             }
         };
         loadProjectData();
     }, [uidSlug]);
+
+useEffect(() => {
+    if (!project?.id) return;
+
+    const disconnect = connectTaskSocket((message) => {
+        if (
+            message.type === 'task.created' ||
+            message.type === 'task.updated'
+        ) {
+            const updatedTask = message.payload?.task as Task | undefined;
+            if (!updatedTask) return;
+
+            setTasks((prev) => {
+                const currentProjectId = Number(project.id);
+                const updatedTaskProjectId =
+                    updatedTask.project_id != null
+                        ? Number(updatedTask.project_id)
+                        : null;
+
+                const exists = prev.some(
+                    (task) => task.uid === updatedTask.uid
+                );
+
+                const belongsToCurrentProject =
+                    updatedTaskProjectId === currentProjectId;
+
+                if (belongsToCurrentProject) {
+                    return exists
+                        ? prev.map((task) =>
+                              task.uid === updatedTask.uid
+                                  ? { ...task, ...updatedTask }
+                                  : task
+                          )
+                        : [updatedTask, ...prev];
+                }
+
+                return exists
+                    ? prev.filter(
+                          (task) => task.uid !== updatedTask.uid
+                      )
+                    : prev;
+            });
+
+            return;
+        }
+
+        if (message.type === 'task.deleted') {
+            const deletedUid = message.payload?.uid;
+            if (!deletedUid) return;
+
+            setTasks((prev) =>
+                prev.filter((task) => task.uid !== deletedUid)
+            );
+        }
+    });
+
+    return disconnect;
+}, [project?.id]);
 
     useEffect(() => {
         const button = editButtonRef.current;
@@ -1040,6 +1099,7 @@ const ProjectDetails: React.FC = () => {
                                         <ProjectTasksSection
                                             project={project}
                                             displayTasks={displayTasks}
+                                            taskStatusFilter={taskStatusFilter}
                                             showAutoSuggestForm={
                                                 showAutoSuggestForm
                                             }

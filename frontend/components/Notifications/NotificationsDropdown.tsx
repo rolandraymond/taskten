@@ -21,9 +21,10 @@ interface Notification {
     source: string;
     read_at: string | null;
     created_at: string;
-    data?: {
+        data?: {
         taskUid?: string;
         projectUid?: string;
+        url?: string;
         [key: string]: any;
     };
 }
@@ -215,8 +216,21 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
     const handleNotificationClick = (notification: Notification) => {
         if (notification.data?.taskUid) {
             setIsOpen(false);
-            navigate(`/task/${notification.data.taskUid}`, { state: { from: location.pathname + location.search } });
-        } else if (notification.data?.projectUid) {
+            navigate(`/task/${notification.data.taskUid}`, {
+                state: { from: location.pathname + location.search },
+            });
+            return;
+        }
+
+        if (notification.data?.url) {
+            setIsOpen(false);
+            navigate(notification.data.url, {
+                state: { from: location.pathname + location.search },
+            });
+            return;
+        }
+
+        if (notification.data?.projectUid) {
             setIsOpen(false);
             navigate(`/project/${notification.data.projectUid}`);
         }
