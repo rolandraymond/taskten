@@ -26,7 +26,11 @@ import {
     deleteProject,
     fetchProjects,
 } from '../../utils/projectsService';
-import { createTask, deleteTask } from '../../utils/tasksService';
+import {
+    createTask,
+    updateTask,
+    deleteTask,
+} from '../../utils/tasksService';
 import {
     updateNote,
     deleteNote as apiDeleteNote,
@@ -385,17 +389,7 @@ useEffect(() => {
             );
             return;
         }
-        const response = await fetch(getApiPath(`task/${updatedTask.uid}`), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(updatedTask),
-        });
-        if (!response.ok) {
-            await response.json();
-            throw new Error('Failed to update task');
-        }
-        const savedTask = await response.json();
+        const savedTask = await updateTask(updatedTask.uid, updatedTask);
         const savedTaskProjectId = savedTask.project_id ?? null;
         const currentProjectId = project?.id ?? null;
         if (savedTaskProjectId !== currentProjectId) {
